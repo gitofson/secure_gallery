@@ -2,8 +2,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/album.dart';
 import '../services/storage_service.dart';
+import '../services/smb_service.dart';
 import 'album_detail_page.dart';
 import 'settings_page.dart';
+import 'smb_gallery_page.dart';
 
 /// Hlavní stránka se seznamem alb
 class AlbumListPage extends StatefulWidget {
@@ -16,6 +18,7 @@ class AlbumListPage extends StatefulWidget {
 class _AlbumListPageState extends State<AlbumListPage> {
   final StorageService _storage = StorageService();
   List<Album> _albums = [];
+  List<SmbGallery> _smbGalleries = [];
   bool _isLoading = true;
 
   @override
@@ -26,9 +29,15 @@ class _AlbumListPageState extends State<AlbumListPage> {
 
   Future<void> _loadAlbums() async {
     try {
-      final albums = await _storage.loadAlbums();
+      // Lokální alba i SMB galerie se načítají paralelně;
+      // SMB načtení má timeout, takže nedostupná síť neblokuje UI.
+      final results = await Future.wait([
+        _storage.loadAlbums(),
+        SmbService.loadGalleries(),
+      ]);
       setState(() {
-        _albums = albums;
+        _albums = results[0] as List<Album>;
+        _smbGalleries = results[1] as List<SmbGallery>;
         _isLoading = false;
       });
     } catch (e) {
@@ -451,7 +460,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _albums.isEmpty
+          : (_albums.isEmpty && _smbGalleries.isEmpty)
               ? _buildEmptyState()
               : _buildAlbumGrid(),
       floatingActionButton: FloatingActionButton.extended(
@@ -494,6 +503,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
   }
 
   Widget _buildAlbumGrid() {
+    final totalCount = _albums.length + _smbGalleries.length;
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -502,17 +512,34 @@ class _AlbumListPageState extends State<AlbumListPage> {
         mainAxisSpacing: 16,
         childAspectRatio: 0.85,
       ),
-      itemCount: _albums.length,
+      itemCount: totalCount,
       itemBuilder: (context, index) {
-        final album = _albums[index];
-        return _AlbumCard(
-          album: album,
-          onTap: () => _openAlbum(album),
-          onLongPress: () => _showAlbumOptions(album),
-          onEncrypt: () => _encryptAlbum(album),
-          onDecrypt: () => _decryptAlbum(album),
+        // Nejdřív lokální alba, pak SMB galerie
+        if (index < _albums.length) {
+          final album = _albums[index];
+          return _AlbumCard(
+            album: album,
+            onTap: () => _openAlbum(album),
+            onLongPress: () => _showAlbumOptions(album),
+            onEncrypt: () => _encryptAlbum(album),
+            onDecrypt: () => _decryptAlbum(album),
+          );
+        }
+        final smbGallery = _smbGalleries[index - _albums.length];
+        return _SmbGalleryCard(
+          gallery: smbGallery,
+          onTap: () => _openSmbGallery(smbGallery),
         );
       },
+    );
+  }
+
+  void _openSmbGallery(SmbGallery gallery) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SmbGalleryPage(gallery: gallery),
+      ),
     );
   }
 }
@@ -657,6 +684,85 @@ class _AlbumCard extends StatelessWidget {
                       color: Colors.grey[600],
                       fontSize: 14,
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Karta SMB síťové galerie v gridu
+class _SmbGalleryCard extends StatelessWidget {
+  final SmbGallery gallery;
+  final VoidCallback onTap;
+
+  const _SmbGalleryCard({
+    required this.gallery,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                color: Colors.blueGrey[50],
+                child: const Icon(
+                  Icons.folder_shared,
+                  size: 64,
+                  color: Colors.blueGrey,
+                ),
+              ),
+            ),
+            Container(
+              color: Colors.blueGrey,
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+              child: const Row(
+                children: [
+                  Icon(Icons.cloud, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Network (SMB)',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    gallery.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '\\\\${gallery.host}\\${gallery.share}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

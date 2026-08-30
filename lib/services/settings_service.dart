@@ -6,6 +6,7 @@ class SettingsService {
   static const String _keyArchiveFolder = 'archive_folder';
   static const String _keyAuthEnabled = 'auth_enabled';
   static const String _keyStoragePath = 'storage_path';
+  static const String _keySmbGalleries = 'smb_galleries';
 
   /// Získá výchozí akci pro import obrázků ('copy' nebo 'move')
   static Future<String> getDefaultAction() async {
@@ -59,5 +60,17 @@ class SettingsService {
   static Future<void> resetStoragePath() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyStoragePath);
+  }
+
+  /// Získá seznam SMB galerií (JSON string)
+  static Future<String?> getSmbGalleries() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySmbGalleries);
+  }
+
+  /// Nastaví seznam SMB galerií (JSON string)
+  static Future<void> setSmbGalleries(String json) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySmbGalleries, json);
   }
 }

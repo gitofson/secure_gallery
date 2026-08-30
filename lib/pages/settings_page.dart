@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/settings_service.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
+import '../services/smb_service.dart';
 
 /// Stránka nastavení aplikace
 class SettingsPage extends StatefulWidget {
@@ -20,6 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _appVersion = '';
   bool _authEnabled = false;
   String _storagePath = '';
+  List<SmbGallery> _smbGalleries = [];
 
   @override
   void initState() {
@@ -27,6 +29,12 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadSettings();
     _loadAppVersion();
     _loadStoragePath();
+    _loadSmbGalleries();
+  }
+
+  Future<void> _loadSmbGalleries() async {
+    final galleries = await SmbService.loadGalleries();
+    setState(() => _smbGalleries = galleries);
   }
 
   Future<void> _loadSettings() async {
@@ -79,6 +87,190 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Storage path reset to default')),
+      );
+    }
+  }
+
+  /// Dialog pro přidání/úpravu SMB galerie
+  Future<void> _editSmbGallery([SmbGallery? existing, int? index]) async {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final hostCtrl = TextEditingController(text: existing?.host ?? '');
+    final shareCtrl = TextEditingController(text: existing?.share ?? '');
+    final pathCtrl = TextEditingController(text: existing?.path ?? '');
+    final userCtrl = TextEditingController(text: existing?.username ?? '');
+    final passCtrl = TextEditingController(text: existing?.password ?? '');
+    final domainCtrl = TextEditingController(text: existing?.domain ?? '');
+
+    final result = await showDialog<SmbGallery>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(existing == null ? 'Add SMB Gallery' : 'Edit SMB Gallery'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  hintText: 'např. NAS domů',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: hostCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Server (IP or hostname)',
+                  hintText: 'např. 192.168.1.10',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.url,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: shareCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Share name',
+                  hintText: 'např. photos',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: pathCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Folder path (optional)',
+                  hintText: 'např. /gallery',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: userCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: domainCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Domain (optional)',
+                  hintText: 'např. WORKGROUP',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty ||
+                  hostCtrl.text.trim().isEmpty ||
+                  shareCtrl.text.trim().isEmpty) {
+                return;
+              }
+              Navigator.pop(
+                context,
+                SmbGallery(
+                  name: nameCtrl.text.trim(),
+                  host: hostCtrl.text.trim(),
+                  share: shareCtrl.text.trim(),
+                  path: pathCtrl.text.trim(),
+                  username: userCtrl.text.trim(),
+                  password: passCtrl.text,
+                  domain: domainCtrl.text.trim(),
+                ),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      final galleries = List<SmbGallery>.from(_smbGalleries);
+      if (index != null) {
+        galleries[index] = result;
+      } else {
+        galleries.add(result);
+      }
+      await SmbService.saveGalleries(galleries);
+      await _loadSmbGalleries();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('SMB gallery "${result.name}" saved')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteSmbGallery(int index) async {
+    final gallery = _smbGalleries[index];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove SMB gallery?'),
+        content: Text('Remove "${gallery.name}" from the list? '
+            'Files on the server will not be deleted.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final galleries = List<SmbGallery>.from(_smbGalleries)..removeAt(index);
+      await SmbService.saveGalleries(galleries);
+      await _loadSmbGalleries();
+    }
+  }
+
+  /// Otestuje připojení k SMB galerii a zobrazí výsledek
+  Future<void> _testSmbGallery(SmbGallery gallery) async {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Testing connection to "${gallery.name}"...'),
+          duration: const Duration(seconds: 12),
+        ),
+      );
+    }
+    final ok = await SmbService.testConnection(gallery);
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok
+              ? 'Connection to "${gallery.name}" successful'
+              : 'Cannot reach "${gallery.name}" (timeout or auth error)'),
+          backgroundColor: ok ? Colors.green : Colors.red,
+        ),
       );
     }
   }
@@ -262,6 +454,81 @@ class _SettingsPageState extends State<SettingsPage> {
                           icon: const Icon(Icons.restore),
                           label: const Text('Reset to default'),
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // SMB síťové galerie
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Network Galleries (SMB)',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => _editSmbGallery(),
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Add SMB gallery',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Browse and import photos from SMB shares. '
+                          'Network galleries are read-only; import encrypts them into local albums. '
+                          'Unreachable galleries never freeze the app.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_smbGalleries.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'No network galleries configured.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        else
+                          ...List.generate(_smbGalleries.length, (i) {
+                            final g = _smbGalleries[i];
+                            return ListTile(
+                              leading: const Icon(Icons.folder_shared),
+                              title: Text(g.name),
+                              subtitle: Text(
+                                '\\\\${g.host}\\${g.share}${g.path.isNotEmpty ? g.path : ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onTap: () => _testSmbGallery(g),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () => _editSmbGallery(g, i),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () => _deleteSmbGallery(i),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
                       ],
                     ),
                   ),

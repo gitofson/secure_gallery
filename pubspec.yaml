@@ -1,7 +1,7 @@
 name: flutter_app
 description: A secure encrypted photo gallery application.
 publish_to: 'none'
-version: 2026.8.18
+version: 2026.8.19
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -21,6 +21,7 @@ dependencies:
   permission_handler: ^11.0.0
   crypto: ^3.0.3
   url_launcher: ^6.2.2
+  smb_connect: ^0.0.9
 
 dev_dependencies:
   flutter_test:
