@@ -271,8 +271,10 @@ class StorageService {
   }
 
   /// Přesune obrázky do jiného alba.
-  /// Pokud je cílové album nešifrované, obrázky se dešifrují (zůstanou čitelné).
-  /// Jinak se přesunou zašifrované tak, jak jsou.
+  /// Nikdy nedojde ke smíchání šifrovaných a nešifrovaných fotek v jednom albu:
+  /// - Cíl šifrovaný + zdroj nešifrovaný → fotka se zašifruje (anonymní název)
+  /// - Cíl nešifrovaný + zdroj šifrovaný → fotka se dešifruje (původní název)
+  /// - Stejný stav → přesune se tak, jak je
   Future<int> moveImagesToAlbum(List<File> images, String targetAlbumName) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonTarget = EncryptionService.anonymizeName(targetAlbumName);
@@ -299,7 +301,7 @@ class StorageService {
         final anonFileName = fileName.replaceAll('.enc', '');
 
         if (isEncrypted && !targetEncrypted) {
-          // Cíl je nešifrovaný → dešifrovat a uložit pod původním názvem
+          // Cíl nešifrovaný → dešifrovat a uložit pod původním názvem
           final decrypted = EncryptionService.decryptImage(
               await image.readAsBytes());
           final originalName = filesMap[anonFileName] ?? anonFileName;
@@ -307,8 +309,18 @@ class StorageService {
           await targetFile.writeAsBytes(decrypted);
           await image.delete();
           filesMap.remove(anonFileName);
+        } else if (!isEncrypted && targetEncrypted) {
+          // Cíl šifrovaný → zašifrovat a uložit pod anonymním názvem
+          final imageBytes = await image.readAsBytes();
+          final encryptedBytes = EncryptionService.encryptImage(imageBytes);
+          final newAnonName = EncryptionService.anonymizeName(
+              '${DateTime.now().millisecondsSinceEpoch}_$fileName');
+          final targetFile = File('${targetDir.path}/$newAnonName.enc');
+          await targetFile.writeAsBytes(encryptedBytes);
+          await image.delete();
+          filesMap[newAnonName] = fileName;
         } else {
-          // Přesunout tak, jak je (zašifrované → zašifrované, nebo nešifrované)
+          // Stejný stav → přesunout tak, jak je
           final newPath = '${targetDir.path}/$fileName';
           await image.rename(newPath);
         }
