@@ -18,7 +18,7 @@ class SmbGalleryPage extends StatefulWidget {
 
 class _SmbGalleryPageState extends State<SmbGalleryPage> {
   List<SmbImageFile>? _images; // null = načítá se
-  bool _loadFailed = false;
+  String? _loadError; // null = bez chyby
   final Set<int> _selectedIndices = {};
   bool _isSelectionMode = false;
   bool _isImporting = false;
@@ -32,14 +32,21 @@ class _SmbGalleryPageState extends State<SmbGalleryPage> {
   Future<void> _loadImages() async {
     setState(() {
       _images = null;
-      _loadFailed = false;
+      _loadError = null;
     });
-    final images = await SmbService.listImages(widget.gallery);
-    if (!mounted) return;
-    setState(() {
-      _images = images;
-      _loadFailed = images.isEmpty;
-    });
+    try {
+      final images = await SmbService.listImages(widget.gallery);
+      if (!mounted) return;
+      setState(() {
+        _images = images;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _images = [];
+        _loadError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   void _toggleSelection(int index) {
@@ -181,27 +188,51 @@ class _SmbGalleryPageState extends State<SmbGalleryPage> {
       );
     }
 
-    if (_loadFailed) {
+    if (_loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Gallery unavailable',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _loadError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _loadImages,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_images!.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+            const Icon(Icons.photo_library_outlined,
+                size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text(
-              'Gallery unavailable',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'The network share is unreachable or empty.',
-              textAlign: TextAlign.center,
-            ),
+            const Text('No images found in this share.'),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _loadImages,
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: const Text('Reload'),
             ),
           ],
         ),

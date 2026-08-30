@@ -273,15 +273,16 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
-    final ok = await SmbService.testConnection(gallery);
+    final error = await SmbService.testConnection(gallery);
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok
+          content: Text(error == null
               ? 'Connection to "${gallery.name}" successful'
-              : 'Cannot reach "${gallery.name}" (timeout or auth error)'),
-          backgroundColor: ok ? Colors.green : Colors.red,
+              : 'Connection failed: $error'),
+          backgroundColor: error == null ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 8),
         ),
       );
     }

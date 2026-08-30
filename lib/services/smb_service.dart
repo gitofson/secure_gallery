@@ -124,22 +124,23 @@ class SmbService {
     }
   }
 
-  /// Otestuje připojení k SMB galerii (true = dostupná)
-  static Future<bool> testConnection(SmbGallery gallery) async {
+  /// Otestuje připojení k SMB galerii.
+  /// Vrací null při úspěchu, jinak text chyby pro zobrazení uživateli.
+  static Future<String?> testConnection(SmbGallery gallery) async {
     try {
       await _withConnection(gallery, (connect) async {
         final folder = await connect.file(_folderPath(gallery));
         await connect.listFiles(folder);
         return true;
       });
-      return true;
-    } catch (_) {
-      return false;
+      return null;
+    } catch (e) {
+      return _errorText(e);
     }
   }
 
   /// Načte seznam obrázků v SMB galerii.
-  /// Vrací prázdný seznam při jakékoli chybě (nedostupná síť apod.).
+  /// Při chybě vyhodí výjimku s čitelným popisem (UI ji zobrazí).
   static Future<List<SmbImageFile>> listImages(SmbGallery gallery) async {
     try {
       return await _withConnection(gallery, (connect) async {
@@ -157,8 +158,8 @@ class SmbService {
                 ))
             .toList();
       });
-    } catch (_) {
-      return [];
+    } catch (e) {
+      throw Exception(_errorText(e));
     }
   }
 
@@ -181,10 +182,27 @@ class SmbService {
     }
   }
 
-  /// Cesta ke složce v rámci share ("/" pokud je path prázdná)
+  /// Cesta ke složce pro smb_connect.
+  ///
+  /// POZOR: smb_connect parsuje share z prvního segmentu cesty
+  /// (viz SmbConnect.getShare), proto cesta MUSÍ obsahovat název share:
+  ///   "share" nebo "share/složka/podložka"
   static String _folderPath(SmbGallery gallery) {
-    final p = gallery.path.trim();
-    if (p.isEmpty || p == '/') return '/';
-    return p.startsWith('/') ? p : '/$p';
+    final share = gallery.share.trim().replaceAll(RegExp(r'^[/\\]+'), '');
+    final p = gallery.path.trim().replaceAll(RegExp(r'^[/\\]+'), '');
+    if (p.isEmpty) return share;
+    return '$share/$p';
+  }
+
+  /// Převede výjimku na čitelný text chyby
+  static String _errorText(Object e) {
+    var text = e.toString();
+    if (text.startsWith('Exception: ')) {
+      text = text.substring('Exception: '.length);
+    }
+    if (e is TimeoutException) {
+      return 'Timeout — server neodpovídá (zkontroluj host/síť)';
+    }
+    return text;
   }
 }
