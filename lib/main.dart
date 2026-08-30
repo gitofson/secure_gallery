@@ -40,6 +40,7 @@ class _AuthWrapperState extends State<AuthWrapper>
   bool _isAuthenticated = false;
   bool _hasStoragePermission = false;
   bool _authEnabled = false;
+  bool _authInProgress = false;
 
   @override
   void initState() {
@@ -56,11 +57,18 @@ class _AuthWrapperState extends State<AuthWrapper>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_authEnabled) return;
+
+    // Při odchodu do pozadí okamžitě skrýt obsah (žádný flash obsahu)
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (_isAuthenticated) {
+        setState(() => _isAuthenticated = false);
+      }
+    }
+
     // Po návratu z pozadí znovu vyžádat autentizaci
-    if (state == AppLifecycleState.resumed &&
-        _authEnabled &&
-        _isAuthenticated) {
-      setState(() => _isAuthenticated = false);
+    if (state == AppLifecycleState.resumed && !_isAuthenticated) {
       _checkAuth();
     }
   }
@@ -98,7 +106,11 @@ class _AuthWrapperState extends State<AuthWrapper>
     }
 
     // Autentizace je zapnutá — ověřit uživatele
+    if (_authInProgress) return;
+    _authInProgress = true;
     final authenticated = await AuthService.authenticate();
+    _authInProgress = false;
+    if (!mounted) return;
     setState(() {
       _isAuthenticated = authenticated;
       _isLoading = false;
