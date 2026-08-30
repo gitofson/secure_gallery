@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/settings_service.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
@@ -79,6 +80,28 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Storage path reset to default')),
       );
+    }
+  }
+
+  /// Otevře PayPal odkaz "Buy me a coffee"
+  Future<void> _openBuyMeACoffee() async {
+    final uri = Uri.parse('https://paypal.me/');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open PayPal link')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error opening link: $e')),
+        );
+      }
     }
   }
 
@@ -270,6 +293,40 @@ class _SettingsPageState extends State<SettingsPage> {
                           subtitle: const Text('Use biometrics or device credentials'),
                           value: _authEnabled,
                           onChanged: _toggleAuth,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Podpora vývojáře
+                Card(
+                  color: Colors.amber[50],
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Support the Developer',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'If you like this app, you can support its development.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        const SizedBox(height: 8),
+                        ListTile(
+                          leading: const Icon(Icons.coffee, color: Colors.brown),
+                          title: const Text('Buy me a coffee'),
+                          subtitle: const Text('via PayPal'),
+                          trailing: const Icon(Icons.open_in_new),
+                          onTap: _openBuyMeACoffee,
                         ),
                       ],
                     ),
