@@ -232,7 +232,11 @@ class SmbService {
       final bytes = await _withConnection(gallery, (connect) async {
         final file = await connect.file(image.path);
         final stream = await connect.openRead(file);
-        final builder = BytesBuilder(copy: false);
+        // POZOR: smb_connect yielduje opakovaně TENTÝŽ buffer
+        // (viz smbOpenRead v knihovně) — copy:true je nutné, jinak
+        // všechny chunky ukazují do jednoho přepisovaného bufferu
+        // a výsledek jsou poškozená data (červený čtvereček).
+        final builder = BytesBuilder(copy: true);
         await for (final chunk in stream) {
           builder.add(chunk);
         }
