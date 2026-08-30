@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:path_provider/path_provider.dart';
 import 'settings_service.dart';
@@ -88,5 +90,33 @@ class EncryptionService {
       iv: _iv!,
     );
     return Uint8List.fromList(decrypted);
+  }
+
+  /// Zašifruje text (např. název alba nebo souboru)
+  static String encryptText(String plainText) {
+    if (_encrypter == null) {
+      throw Exception('EncryptionService není inicializován! Zavolej initialize() první.');
+    }
+    final encrypted = _encrypter!.encrypt(plainText, iv: _iv!);
+    return encrypted.base64;
+  }
+
+  /// Dešifruje text
+  static String decryptText(String encryptedBase64) {
+    if (_encrypter == null) {
+      throw Exception('EncryptionService není inicializován! Zavolej initialize() první.');
+    }
+    return _encrypter!.decrypt64(encryptedBase64, iv: _iv!);
+  }
+
+  /// Vytvoří anonymní (ale stabilní) název z původního názvu
+  /// Stejný vstup → stejný výstup, bez klíče nezjistitelný
+  static String anonymizeName(String originalName) {
+    if (_key == null) {
+      throw Exception('EncryptionService není inicializován! Zavolej initialize() první.');
+    }
+    final hmac = Hmac(sha256, _key!.bytes);
+    final digest = hmac.convert(utf8.encode(originalName));
+    return digest.toString().substring(0, 32);
   }
 }
