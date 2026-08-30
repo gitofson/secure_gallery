@@ -17,7 +17,14 @@ class StorageService {
       return Directory('$customPath/$_albumsFolder');
     }
     
-    // Výchozí: externí úložiště (přežije odinstalaci)
+    // Výchozí: public external storage (přežije odinstalaci)
+    // /storage/emulated/0/SecureGallery/
+    final publicDir = Directory('/storage/emulated/0/SecureGallery');
+    if (await publicDir.exists() || await publicDir.create(recursive: true).then((_) => true).catchError((_) => false)) {
+      return Directory('${publicDir.path}/$_albumsFolder');
+    }
+    
+    // Fallback: externí úložiště aplikace
     final externalDir = await getExternalStorageDirectory();
     if (externalDir != null) {
       return Directory('${externalDir.path}/$_albumsFolder');

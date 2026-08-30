@@ -137,6 +137,50 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     }
   }
 
+  Future<void> _exportAlbum() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exportovat album?'),
+        content: Text(
+          'Všechny obrázky z alba "${widget.album.name}" budou dešifrovány a exportovány do systémové galerie.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Zrušit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Exportovat'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+
+      try {
+        final successCount = await _storage.exportImagesToGallery(_images);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Exportováno $successCount obrázků z alba "${widget.album.name}"')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Chyba při exportu: $e')),
+          );
+        }
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   bool _isLoading = false;
 
   Future<void> _pickImage(ImageSource source, {bool multi = false}) async {
@@ -323,7 +367,13 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
                   onPressed: _clearSelection,
                 ),
               ]
-            : null,
+            : [
+                IconButton(
+                  icon: const Icon(Icons.download),
+                  tooltip: 'Exportovat celé album',
+                  onPressed: _exportAlbum,
+                ),
+              ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

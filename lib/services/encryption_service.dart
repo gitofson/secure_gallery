@@ -13,13 +13,20 @@ class EncryptionService {
   static encrypt.IV? _iv;
   static encrypt.Encrypter? _encrypter;
 
-  /// Získá adresář pro uložení klíčů (externí úložiště)
+  /// Získá adresář pro uložení klíčů (public external storage)
   static Future<Directory> _getKeyDirectory() async {
     final customPath = await SettingsService.getStoragePath();
     if (customPath != null && customPath.isNotEmpty) {
       return Directory(customPath);
     }
     
+    // Výchozí: public external storage (přežije odinstalaci)
+    final publicDir = Directory('/storage/emulated/0/SecureGallery');
+    if (await publicDir.exists() || await publicDir.create(recursive: true).then((_) => true).catchError((_) => false)) {
+      return publicDir;
+    }
+    
+    // Fallback: externí úložiště aplikace
     final externalDir = await getExternalStorageDirectory();
     if (externalDir != null) {
       return externalDir;
