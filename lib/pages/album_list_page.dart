@@ -295,6 +295,58 @@ class _AlbumListPageState extends State<AlbumListPage> {
     }
   }
 
+  Future<void> _decryptAlbum(Album album) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dešifrovat album?'),
+        content: Text(
+          'Album "${album.name}" obsahuje zašifrované obrázky. Chcete je dešifrovat a obnovit původní názvy souborů? Tato akce může chvíli trvat.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Zrušit'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Dešifrovat'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dešifruji album...'),
+              duration: Duration(seconds: 30),
+            ),
+          );
+        }
+
+        final count = await _storage.decryptAlbum(album.name);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Dešifrováno $count obrázků')),
+          );
+          await _loadAlbums();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Chyba při dešifrování: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -379,6 +431,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
           onTap: () => _openAlbum(album),
           onLongPress: () => _deleteAlbum(album),
           onEncrypt: () => _encryptAlbum(album),
+          onDecrypt: () => _decryptAlbum(album),
         );
       },
     );
@@ -391,12 +444,14 @@ class _AlbumCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onEncrypt;
+  final VoidCallback onDecrypt;
 
   const _AlbumCard({
     required this.album,
     required this.onTap,
     required this.onLongPress,
     required this.onEncrypt,
+    required this.onDecrypt,
   });
 
   @override
@@ -428,24 +483,51 @@ class _AlbumCard extends StatelessWidget {
             if (!album.isEncrypted)
               Container(
                 color: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning, color: Colors.white, size: 16),
-                    const SizedBox(width: 4),
+                    const Icon(Icons.warning, color: Colors.white, size: 24),
+                    const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
                         'Nešifrovaná data',
+                        style: TextStyle(color: Colors.white, fontSize: 14),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: onEncrypt,
+                      icon: const Icon(
+                        Icons.lock,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      tooltip: 'Zašifrovat album',
+                    ),
+                  ],
+                ),
+              ),
+            if (album.isEncrypted)
+              Container(
+                color: Colors.green,
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Zašifrováno',
                         style: TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
-                    GestureDetector(
-                      onTap: onEncrypt,
-                      child: const Icon(
-                        Icons.lock,
+                    IconButton(
+                      onPressed: onDecrypt,
+                      icon: const Icon(
+                        Icons.lock_open,
                         color: Colors.white,
-                        size: 16,
+                        size: 24,
                       ),
+                      tooltip: 'Dešifrovat album',
                     ),
                   ],
                 ),

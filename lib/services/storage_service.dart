@@ -347,6 +347,55 @@ class StorageService {
     return encryptedCount;
   }
 
+  /// Dešifruje všechny zašifrované obrázky v albu (obnoví původní názvy)
+  Future<int> decryptAlbum(String albumName) async {
+    final albumsDir = await _getAlbumsDirectory();
+    final anonName = EncryptionService.anonymizeName(albumName);
+    final albumDir = Directory('${albumsDir.path}/$anonName');
+
+    if (!await albumDir.exists()) {
+      return 0;
+    }
+
+    int decryptedCount = 0;
+    final index = await _loadIndex();
+    final filesMap = index['files'] as Map<String, dynamic>;
+
+    await for (final entity in albumDir.list()) {
+      if (entity is File && entity.path.toLowerCase().endsWith('.enc')) {
+        try {
+          // Načtení zašifrovaného obrázku
+          final encryptedBytes = await entity.readAsBytes();
+
+          // Dešifrování
+          final decryptedBytes = EncryptionService.decryptImage(encryptedBytes);
+
+          // Získání původního názvu z indexu
+          final anonFileName =
+              entity.path.split('/').last.replaceAll('.enc', '');
+          final originalName = filesMap[anonFileName] ?? anonFileName;
+
+          // Uložení dešifrovaného souboru s původním názvem
+          final decryptedFile = File('${albumDir.path}/$originalName');
+          await decryptedFile.writeAsBytes(decryptedBytes);
+
+          // Smazání zašifrovaného souboru
+          await entity.delete();
+
+          // Odstranění z indexu
+          filesMap.remove(anonFileName);
+
+          decryptedCount++;
+        } catch (e) {
+          print('❌ Chyba při dešifrování ${entity.path}: $e');
+        }
+      }
+    }
+
+    await _saveIndex(index);
+    return decryptedCount;
+  }
+
   // ---------------------------------------------------------------------------
   // Pomocné metody
   // ---------------------------------------------------------------------------
