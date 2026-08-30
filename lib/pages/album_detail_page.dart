@@ -83,18 +83,9 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
       try {
         final selectedImages = _selectedIndices.map((i) => _images[i]).toList();
         await _storage.moveToArchive(selectedImages, widget.album.name);
-        
-        setState(() {
-          // Odstranění přesunutých obrázků ze seznamu (od konce, aby se neposunuly indexy)
-          final sortedIndices = _selectedIndices.toList()..sort((a, b) => b.compareTo(a));
-          for (final index in sortedIndices) {
-            _images.removeAt(index);
-          }
-          _clearSelection();
-        });
-        
+        _removeSelectedFromList();
         widget.onAlbumChanged();
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Moved ${selectedImages.length} image(s) to archive')),
@@ -106,6 +97,88 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             SnackBar(content: Text('Error moving to archive: $e')),
           );
         }
+      }
+    }
+  }
+
+  /// Odstraní vybrané obrázky ze seznamu (od konce, aby se neposunuly indexy)
+  void _removeSelectedFromList() {
+    setState(() {
+      final sortedIndices = _selectedIndices.toList()
+        ..sort((a, b) => b.compareTo(a));
+      for (final index in sortedIndices) {
+        _images.removeAt(index);
+      }
+      _clearSelection();
+    });
+  }
+
+  /// Přesune vybrané obrázky do jiného alba
+  Future<void> _moveSelectedToAlbum() async {
+    if (_selectedIndices.isEmpty) return;
+
+    // Načíst seznam alb (kromě aktuálního)
+    final albums = await _storage.loadAlbums();
+    final otherAlbums =
+        albums.where((a) => a.name != widget.album.name).toList();
+
+    if (!mounted) return;
+
+    if (otherAlbums.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Žádné jiné album neexistuje')),
+      );
+      return;
+    }
+
+    final targetAlbum = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Přesunout do alba'),
+        children: otherAlbums.map((album) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, album.name),
+            child: Row(
+              children: [
+                Icon(
+                  album.isEncrypted ? Icons.lock : Icons.lock_open,
+                  size: 20,
+                  color: album.isEncrypted ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(album.name)),
+                Text(
+                  '${album.images.length}',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (targetAlbum == null) return;
+
+    try {
+      final selectedImages = _selectedIndices.map((i) => _images[i]).toList();
+      final movedCount =
+          await _storage.moveImagesToAlbum(selectedImages, targetAlbum);
+      _removeSelectedFromList();
+      widget.onAlbumChanged();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Přesunuto $movedCount obrázků do "$targetAlbum"')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Chyba při přesunu: $e')),
+        );
       }
     }
   }
@@ -351,6 +424,11 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: _isSelectionMode
             ? [
+                IconButton(
+                  icon: const Icon(Icons.drive_file_move),
+                  tooltip: 'Přesunout do alba',
+                  onPressed: _moveSelectedToAlbum,
+                ),
                 IconButton(
                   icon: const Icon(Icons.archive),
                   tooltip: 'Move to Archive',

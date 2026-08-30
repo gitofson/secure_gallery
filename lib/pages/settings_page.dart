@@ -85,7 +85,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Otevře PayPal odkaz "Buy me a coffee"
   Future<void> _openBuyMeACoffee() async {
-    final uri = Uri.parse('https://paypal.me/');
+    final uri = Uri.parse('https://paypal.me/pastelina7');
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);

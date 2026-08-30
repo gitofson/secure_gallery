@@ -180,6 +180,84 @@ class _AlbumListPageState extends State<AlbumListPage> {
     }
   }
 
+  /// Zobrazí menu po dlouhém stisku na album (přejmenovat / smazat)
+  void _showAlbumOptions(Album album) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Přejmenovat album'),
+              onTap: () {
+                Navigator.pop(context);
+                _renameAlbum(album);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Smazat album',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteAlbum(album);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _renameAlbum(Album album) async {
+    final controller = TextEditingController(text: album.name);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Přejmenovat album'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Nový název',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+          onSubmitted: (value) => Navigator.pop(context, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Zrušit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Přejmenovat'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && result != album.name) {
+      try {
+        await _storage.renameAlbum(album.name, result);
+        await _loadAlbums();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Album přejmenováno na "$result"')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Chyba při přejmenování: $e')),
+          );
+        }
+      }
+    }
+  }
+
   void _openAlbum(Album album) {
     Navigator.push(
       context,
@@ -430,7 +508,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
         return _AlbumCard(
           album: album,
           onTap: () => _openAlbum(album),
-          onLongPress: () => _deleteAlbum(album),
+          onLongPress: () => _showAlbumOptions(album),
           onEncrypt: () => _encryptAlbum(album),
           onDecrypt: () => _decryptAlbum(album),
         );

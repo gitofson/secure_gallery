@@ -34,15 +34,35 @@ class AuthWrapper extends StatefulWidget {
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class _AuthWrapperState extends State<AuthWrapper>
+    with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _isAuthenticated = false;
   bool _hasStoragePermission = false;
+  bool _authEnabled = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissionsAndAuth();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Po návratu z pozadí znovu vyžádat autentizaci
+    if (state == AppLifecycleState.resumed &&
+        _authEnabled &&
+        _isAuthenticated) {
+      setState(() => _isAuthenticated = false);
+      _checkAuth();
+    }
   }
 
   Future<void> _checkPermissionsAndAuth() async {
@@ -66,9 +86,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
       await EncryptionService.initialize();
     }
 
-    final authEnabled = await SettingsService.getAuthEnabled();
-    
-    if (!authEnabled) {
+    _authEnabled = await SettingsService.getAuthEnabled();
+
+    if (!_authEnabled) {
       // Autentizace není zapnutá — povolit přístup
       setState(() {
         _isAuthenticated = true;
