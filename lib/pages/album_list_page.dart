@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/album.dart';
 import '../services/storage_service.dart';
@@ -467,9 +468,34 @@ class _AlbumCard extends StatelessWidget {
           children: [
             Expanded(
               child: album.images.isNotEmpty
-                  ? Image.file(
-                      album.images.first,
-                      fit: BoxFit.cover,
+                  ? FutureBuilder<Uint8List>(
+                      future: StorageService()
+                          .loadDecryptedImage(album.images.first),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: const Icon(
+                              Icons.broken_image,
+                              size: 64,
+                              color: Colors.red,
+                            ),
+                          );
+                        }
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      },
                     )
                   : Container(
                       color: Colors.grey[300],

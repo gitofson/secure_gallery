@@ -143,6 +143,18 @@ class StorageService {
     return images;
   }
 
+  /// Najde skutečný adresář alba — anonymní (hash) nebo prostý název
+  /// (ručně zkopírovaná alba mají na disku původní název)
+  Future<Directory?> _resolveAlbumDir(String albumName) async {
+    final albumsDir = await _getAlbumsDirectory();
+    final anonDir =
+        Directory('${albumsDir.path}/${EncryptionService.anonymizeName(albumName)}');
+    if (await anonDir.exists()) return anonDir;
+    final plainDir = Directory('${albumsDir.path}/$albumName');
+    if (await plainDir.exists()) return plainDir;
+    return null;
+  }
+
   /// Vytvoří nové album
   Future<void> createAlbum(String name) async {
     final albumsDir = await _getAlbumsDirectory();
@@ -157,10 +169,9 @@ class StorageService {
 
   /// Smaže album a všechny jeho obrázky
   Future<void> deleteAlbum(String name) async {
-    final albumsDir = await _getAlbumsDirectory();
     final anonName = EncryptionService.anonymizeName(name);
-    final albumDir = Directory('${albumsDir.path}/$anonName');
-    if (await albumDir.exists()) {
+    final albumDir = await _resolveAlbumDir(name);
+    if (albumDir != null) {
       await albumDir.delete(recursive: true);
     }
 
@@ -177,7 +188,8 @@ class StorageService {
   Future<File> saveImageToAlbum(String albumName, File sourceFile) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonAlbumName = EncryptionService.anonymizeName(albumName);
-    final albumDir = Directory('${albumsDir.path}/$anonAlbumName');
+    final albumDir = await _resolveAlbumDir(albumName) ??
+        Directory('${albumsDir.path}/$anonAlbumName');
     if (!await albumDir.exists()) {
       await albumDir.create(recursive: true);
     }
@@ -299,9 +311,9 @@ class StorageService {
   Future<int> encryptAlbum(String albumName) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonName = EncryptionService.anonymizeName(albumName);
-    final albumDir = Directory('${albumsDir.path}/$anonName');
+    final albumDir = await _resolveAlbumDir(albumName);
 
-    if (!await albumDir.exists()) {
+    if (albumDir == null) {
       return 0;
     }
 
@@ -309,7 +321,10 @@ class StorageService {
     final index = await _loadIndex();
     final filesMap = index['files'] as Map<String, dynamic>;
 
-    await for (final entity in albumDir.list()) {
+    // Nejdřív načíst seznam souborů (neměnit adresář během iterace)
+    final entities = await albumDir.list().toList();
+
+    for (final entity in entities) {
       if (entity is File && isImageFile(entity.path)) {
         if (!entity.path.toLowerCase().endsWith('.enc')) {
           try {
@@ -325,8 +340,7 @@ class StorageService {
                 '${DateTime.now().millisecondsSinceEpoch}_$originalFileName');
 
             // Uložení zašifrovaného souboru
-            final encryptedFile =
-                File('${albumDir.path}/$anonFileName.enc');
+            final encryptedFile = File('${albumDir.path}/$anonFileName.enc');
             await encryptedFile.writeAsBytes(encryptedBytes);
 
             // Smazání původního souboru
@@ -343,6 +357,16 @@ class StorageService {
       }
     }
 
+    // Ručně zkopírované album (prostý název) přejmenovat na anonymní
+    if (albumDir.path.split('/').last != anonName) {
+      try {
+        await albumDir.rename('${albumsDir.path}/$anonName');
+        (index['albums'] as Map<String, dynamic>)[anonName] = albumName;
+      } catch (e) {
+        print('⚠️ Chyba při přejmenování adresáře alba: $e');
+      }
+    }
+
     await _saveIndex(index);
     return encryptedCount;
   }
@@ -351,9 +375,9 @@ class StorageService {
   Future<int> decryptAlbum(String albumName) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonName = EncryptionService.anonymizeName(albumName);
-    final albumDir = Directory('${albumsDir.path}/$anonName');
+    final albumDir = await _resolveAlbumDir(albumName);
 
-    if (!await albumDir.exists()) {
+    if (albumDir == null) {
       return 0;
     }
 
@@ -361,7 +385,10 @@ class StorageService {
     final index = await _loadIndex();
     final filesMap = index['files'] as Map<String, dynamic>;
 
-    await for (final entity in albumDir.list()) {
+    // Nejdřív načíst seznam souborů (neměnit adresář během iterace)
+    final entities = await albumDir.list().toList();
+
+    for (final entity in entities) {
       if (entity is File && entity.path.toLowerCase().endsWith('.enc')) {
         try {
           // Načtení zašifrovaného obrázku
@@ -388,6 +415,19 @@ class StorageService {
           decryptedCount++;
         } catch (e) {
           print('❌ Chyba při dešifrování ${entity.path}: $e');
+        }
+      }
+    }
+
+    // Přejmenovat anonymní adresář zpět na původní název alba
+    if (albumDir.path.split('/').last == anonName && anonName != albumName) {
+      final plainDir = Directory('${albumsDir.path}/$albumName');
+      if (!await plainDir.exists()) {
+        try {
+          await albumDir.rename(plainDir.path);
+          (index['albums'] as Map<String, dynamic>).remove(anonName);
+        } catch (e) {
+          print('⚠️ Chyba při přejmenování adresáře alba: $e');
         }
       }
     }

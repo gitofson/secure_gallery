@@ -491,6 +491,7 @@ class _ImageThumbnail extends StatelessWidget {
                       height: double.infinity,
                     );
                   } else if (snapshot.hasError) {
+                    print('❌ Chyba náhledu ${image.path}: ${snapshot.error}');
                     return Container(
                       color: Colors.grey[300],
                       child: const Icon(Icons.error, color: Colors.red),
