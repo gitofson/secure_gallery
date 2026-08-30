@@ -7,7 +7,6 @@ import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await EncryptionService.initialize();
   runApp(const MyApp());
 }
 
@@ -62,6 +61,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkAuth() async {
+    // Inicializace šifrování až po udělení oprávnění
+    if (_hasStoragePermission) {
+      await EncryptionService.initialize();
+    }
+
     final authEnabled = await SettingsService.getAuthEnabled();
     
     if (!authEnabled) {
