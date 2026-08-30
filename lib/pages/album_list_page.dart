@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/album.dart';
 import '../services/storage_service.dart';
-import '../services/auth_service.dart';
 import 'album_detail_page.dart';
 import 'settings_page.dart';
 
@@ -17,23 +16,11 @@ class _AlbumListPageState extends State<AlbumListPage> {
   final StorageService _storage = StorageService();
   List<Album> _albums = [];
   bool _isLoading = true;
-  bool _isAuthenticated = false;
 
   @override
   void initState() {
     super.initState();
-    _authenticate();
-  }
-
-  Future<void> _authenticate() async {
-    final authenticated = await AuthService.authenticate();
-    setState(() {
-      _isAuthenticated = authenticated;
-      _isLoading = false;
-    });
-    if (authenticated) {
-      _loadAlbums();
-    }
+    _loadAlbums();
   }
 
   Future<void> _loadAlbums() async {
@@ -206,32 +193,6 @@ class _AlbumListPageState extends State<AlbumListPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isAuthenticated) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.lock, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              const Text(
-                'Authentication Required',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text('Please authenticate to access your gallery'),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _authenticate,
-                icon: const Icon(Icons.fingerprint),
-                label: const Text('Authenticate'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Secure Gallery'),

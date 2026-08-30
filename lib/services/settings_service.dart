@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SettingsService {
   static const String _keyDefaultAction = 'default_action'; // 'copy' nebo 'move'
   static const String _keyArchiveFolder = 'archive_folder';
+  static const String _keyAuthEnabled = 'auth_enabled';
 
   /// Získá výchozí akci pro import obrázků ('copy' nebo 'move')
   static Future<String> getDefaultAction() async {
@@ -27,5 +28,17 @@ class SettingsService {
   static Future<void> setArchiveFolder(String folder) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyArchiveFolder, folder);
+  }
+
+  /// Získá, zda je zapnutá autentizace
+  static Future<bool> getAuthEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAuthEnabled) ?? false;
+  }
+
+  /// Nastaví, zda je zapnutá autentizace
+  static Future<void> setAuthEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAuthEnabled, enabled);
   }
 }

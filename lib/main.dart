@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'pages/album_list_page.dart';
 import 'services/encryption_service.dart';
+import 'services/settings_service.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +21,83 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const AlbumListPage(),
+      home: const AuthWrapper(),
     );
+  }
+}
+
+/// Wrapper pro autentizaci — kontroluje, zda je zapnutá
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isLoading = true;
+  bool _isAuthenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final authEnabled = await SettingsService.getAuthEnabled();
+    
+    if (!authEnabled) {
+      // Autentizace není zapnutá — povolit přístup
+      setState(() {
+        _isAuthenticated = true;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Autentizace je zapnutá — ověřit uživatele
+    final authenticated = await AuthService.authenticate();
+    setState(() {
+      _isAuthenticated = authenticated;
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!_isAuthenticated) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Authentication Required',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text('Please authenticate to access your gallery'),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _checkAuth,
+                icon: const Icon(Icons.fingerprint),
+                label: const Text('Authenticate'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return const AlbumListPage();
   }
 }
