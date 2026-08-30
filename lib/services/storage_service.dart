@@ -153,6 +153,19 @@ class StorageService {
     return successCount;
   }
 
+  /// Exportuje všechna alba do systémové galerie
+  Future<int> exportAllAlbumsToGallery() async {
+    final albums = await loadAlbums();
+    int totalExported = 0;
+    
+    for (final album in albums) {
+      final count = await exportImagesToGallery(album.images);
+      totalExported += count;
+    }
+    
+    return totalExported;
+  }
+
   /// Kontrola, zda je soubor obrázek (včetně .enc)
   bool isImageFile(String path) {
     final ext = path.toLowerCase().split('.').last;

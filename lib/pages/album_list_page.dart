@@ -191,6 +191,58 @@ class _AlbumListPageState extends State<AlbumListPage> {
     );
   }
 
+  Future<void> _exportAllAlbums() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exportovat všechna alba?'),
+        content: const Text(
+          'Všechny obrázky ze všech alb budou dešifrovány a exportovány do systémové galerie. Tato akce může chvíli trvat.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Zrušit'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Exportovat'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Zobrazit progress
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Exportuji všechna alba...'),
+              duration: Duration(seconds: 30),
+            ),
+          );
+        }
+
+        final count = await _storage.exportAllAlbumsToGallery();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Exportováno $count obrázků')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Chyba při exportu: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -198,6 +250,11 @@ class _AlbumListPageState extends State<AlbumListPage> {
         title: const Text('Secure Gallery'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Exportovat všechna alba',
+            onPressed: _exportAllAlbums,
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {

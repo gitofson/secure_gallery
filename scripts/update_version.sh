@@ -15,3 +15,11 @@ echo "Aktualizuji verzi na: $NEW_VERSION+$BUILD_NUMBER"
 sed -i "s/^version: .*/version: $NEW_VERSION+$BUILD_NUMBER/" "$PUBSPEC"
 
 echo "Verze aktualizována v $PUBSPEC"
+
+# Sestavení APK
+echo "Sestavuji APK..."
+cd "$PROJECT_DIR"
+export JAVA_HOME=/scratch/android-studio/jbr
+/scratch/flutter/bin/flutter build apk --release
+
+echo "✅ Hotovo! APK: $PROJECT_DIR/build/app/outputs/flutter-apk/app-release.apk"
