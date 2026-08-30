@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../services/settings_service.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 
 /// Stránka nastavení aplikace
 class SettingsPage extends StatefulWidget {
@@ -17,12 +18,14 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isLoading = true;
   String _appVersion = '';
   bool _authEnabled = false;
+  String _storagePath = '';
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
     _loadAppVersion();
+    _loadStoragePath();
   }
 
   Future<void> _loadSettings() async {
@@ -44,6 +47,11 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  Future<void> _loadStoragePath() async {
+    final path = await StorageService().getCurrentStoragePath();
+    setState(() => _storagePath = path);
+  }
+
   Future<void> _saveDefaultAction(String action) async {
     await SettingsService.setDefaultAction(action);
     setState(() => _defaultAction = action);
@@ -52,6 +60,26 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _saveArchiveFolder(String folder) async {
     await SettingsService.setArchiveFolder(folder);
     setState(() => _archiveFolder = folder);
+  }
+
+  Future<void> _saveStoragePath(String path) async {
+    await SettingsService.setStoragePath(path);
+    setState(() => _storagePath = path);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Storage path updated. Restart app to apply.')),
+      );
+    }
+  }
+
+  Future<void> _resetStoragePath() async {
+    await SettingsService.resetStoragePath();
+    await _loadStoragePath();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Storage path reset to default')),
+      );
+    }
   }
 
   Future<void> _toggleAuth(bool enabled) async {
@@ -169,6 +197,47 @@ class _SettingsPageState extends State<SettingsPage> {
                             prefixIcon: Icon(Icons.folder),
                           ),
                           onSubmitted: _saveArchiveFolder,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Úložiště
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Storage Location',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Where encrypted albums are stored. External storage survives app uninstall.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: TextEditingController(text: _storagePath),
+                          decoration: const InputDecoration(
+                            labelText: 'Storage path',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.sd_storage),
+                          ),
+                          onSubmitted: _saveStoragePath,
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _resetStoragePath,
+                          icon: const Icon(Icons.restore),
+                          label: const Text('Reset to default'),
                         ),
                       ],
                     ),

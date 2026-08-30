@@ -1,42 +1,61 @@
-import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart' as encrypt;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
+import 'settings_service.dart';
 
 /// Služba pro šifrování a dešifrování obrázků pomocí AES
 class EncryptionService {
-  static const _storage = FlutterSecureStorage();
-  static const _keyStorageKey = 'encryption_key';
-  static const _ivStorageKey = 'encryption_iv';
+  static const _keyFileName = 'encryption_key.bin';
+  static const _ivFileName = 'encryption_iv.bin';
 
   static encrypt.Key? _key;
   static encrypt.IV? _iv;
   static encrypt.Encrypter? _encrypter;
 
+  /// Získá adresář pro uložení klíčů (externí úložiště)
+  static Future<Directory> _getKeyDirectory() async {
+    final customPath = await SettingsService.getStoragePath();
+    if (customPath != null && customPath.isNotEmpty) {
+      return Directory(customPath);
+    }
+    
+    final externalDir = await getExternalStorageDirectory();
+    if (externalDir != null) {
+      return externalDir;
+    }
+    
+    return await getApplicationDocumentsDirectory();
+  }
+
   /// Inicializace - načte nebo vytvoří klíč a IV
   static Future<void> initialize() async {
     print('🔑 Inicializace šifrování...');
 
+    final keyDir = await _getKeyDirectory();
+    final keyFile = File('${keyDir.path}/$_keyFileName');
+    final ivFile = File('${keyDir.path}/$_ivFileName');
+
     // Načtení nebo vytvoření klíče
-    String? keyString = await _storage.read(key: _keyStorageKey);
-    if (keyString == null) {
+    if (await keyFile.exists()) {
+      print('🔑 Načítám existující klíč...');
+      final keyBytes = await keyFile.readAsBytes();
+      _key = encrypt.Key(Uint8List.fromList(keyBytes));
+    } else {
       print('🔑 Generuji nový klíč...');
       _key = encrypt.Key.fromLength(32);
-      await _storage.write(key: _keyStorageKey, value: base64.encode(_key!.bytes));
-    } else {
-      print('🔑 Načítám existující klíč...');
-      _key = encrypt.Key(base64.decode(keyString));
+      await keyFile.writeAsBytes(_key!.bytes);
     }
 
     // Načtení nebo vytvoření IV
-    String? ivString = await _storage.read(key: _ivStorageKey);
-    if (ivString == null) {
+    if (await ivFile.exists()) {
+      print('🔑 Načítám existující IV...');
+      final ivBytes = await ivFile.readAsBytes();
+      _iv = encrypt.IV(Uint8List.fromList(ivBytes));
+    } else {
       print('🔑 Generuji nový IV...');
       _iv = encrypt.IV.fromLength(16);
-      await _storage.write(key: _ivStorageKey, value: base64.encode(_iv!.bytes));
-    } else {
-      print('🔑 Načítám existující IV...');
-      _iv = encrypt.IV(base64.decode(ivString));
+      await ivFile.writeAsBytes(_iv!.bytes);
     }
 
     _encrypter = encrypt.Encrypter(encrypt.AES(_key!));

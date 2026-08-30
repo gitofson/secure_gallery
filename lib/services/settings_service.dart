@@ -5,6 +5,7 @@ class SettingsService {
   static const String _keyDefaultAction = 'default_action'; // 'copy' nebo 'move'
   static const String _keyArchiveFolder = 'archive_folder';
   static const String _keyAuthEnabled = 'auth_enabled';
+  static const String _keyStoragePath = 'storage_path';
 
   /// Získá výchozí akci pro import obrázků ('copy' nebo 'move')
   static Future<String> getDefaultAction() async {
@@ -40,5 +41,23 @@ class SettingsService {
   static Future<void> setAuthEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyAuthEnabled, enabled);
+  }
+
+  /// Získá cestu k úložišti (null = výchozí interní)
+  static Future<String?> getStoragePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyStoragePath);
+  }
+
+  /// Nastaví cestu k úložišti
+  static Future<void> setStoragePath(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyStoragePath, path);
+  }
+
+  /// Resetuje cestu k úložišti na výchozí
+  static Future<void> resetStoragePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyStoragePath);
   }
 }

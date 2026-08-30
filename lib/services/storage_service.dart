@@ -12,8 +12,26 @@ class StorageService {
 
   /// Získá cestu k adresáři s alby
   Future<Directory> _getAlbumsDirectory() async {
+    final customPath = await SettingsService.getStoragePath();
+    if (customPath != null && customPath.isNotEmpty) {
+      return Directory('$customPath/$_albumsFolder');
+    }
+    
+    // Výchozí: externí úložiště (přežije odinstalaci)
+    final externalDir = await getExternalStorageDirectory();
+    if (externalDir != null) {
+      return Directory('${externalDir.path}/$_albumsFolder');
+    }
+    
+    // Fallback: interní úložiště
     final appDir = await getApplicationDocumentsDirectory();
     return Directory('${appDir.path}/$_albumsFolder');
+  }
+
+  /// Získá aktuální cestu k úložišti (pro zobrazení v nastavení)
+  Future<String> getCurrentStoragePath() async {
+    final albumsDir = await _getAlbumsDirectory();
+    return albumsDir.path;
   }
 
   /// Načte všechna alba z disku
