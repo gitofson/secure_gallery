@@ -243,6 +243,58 @@ class _AlbumListPageState extends State<AlbumListPage> {
     }
   }
 
+  Future<void> _encryptAlbum(Album album) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Zašifrovat album?'),
+        content: Text(
+          'Album "${album.name}" obsahuje nešifrované obrázky. Chcete je zašifrovat? Tato akce může chvíli trvat.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Zrušit'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Zašifrovat'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Šifruji album...'),
+              duration: Duration(seconds: 30),
+            ),
+          );
+        }
+
+        final count = await _storage.encryptAlbum(album.name);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Zašifrováno $count obrázků')),
+          );
+          await _loadAlbums();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Chyba při šifrování: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -326,6 +378,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
           album: album,
           onTap: () => _openAlbum(album),
           onLongPress: () => _deleteAlbum(album),
+          onEncrypt: () => _encryptAlbum(album),
         );
       },
     );
@@ -337,11 +390,13 @@ class _AlbumCard extends StatelessWidget {
   final Album album;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onEncrypt;
 
   const _AlbumCard({
     required this.album,
     required this.onTap,
     required this.onLongPress,
+    required this.onEncrypt,
   });
 
   @override
@@ -351,6 +406,7 @@ class _AlbumCard extends StatelessWidget {
       onLongPress: onLongPress,
       child: Card(
         clipBehavior: Clip.antiAlias,
+        color: album.isEncrypted ? null : Colors.red[50],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -369,6 +425,31 @@ class _AlbumCard extends StatelessWidget {
                       ),
                     ),
             ),
+            if (!album.isEncrypted)
+              Container(
+                color: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.white, size: 16),
+                    const SizedBox(width: 4),
+                    const Expanded(
+                      child: Text(
+                        'Nešifrovaná data',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: onEncrypt,
+                      child: const Icon(
+                        Icons.lock,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(

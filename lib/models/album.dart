@@ -4,6 +4,11 @@ import 'dart:io';
 class Album {
   final String name;
   final List<File> images;
+  final bool isEncrypted;
 
-  Album({required this.name, required this.images});
+  Album({
+    required this.name,
+    required this.images,
+    this.isEncrypted = true,
+  });
 }

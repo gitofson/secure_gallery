@@ -109,10 +109,27 @@ class StorageService {
         final anonName = entity.path.split('/').last;
         final originalName = albumsMap[anonName] ?? anonName;
         final images = await _loadImagesFromDirectory(entity);
-        albums.add(Album(name: originalName, images: images));
+        final isEncrypted = await _isAlbumEncrypted(entity);
+        albums.add(Album(
+          name: originalName,
+          images: images,
+          isEncrypted: isEncrypted,
+        ));
       }
     }
     return albums;
+  }
+
+  /// Zjistí, zda je album zašifrované (všechny soubory mají .enc)
+  Future<bool> _isAlbumEncrypted(Directory dir) async {
+    await for (final file in dir.list()) {
+      if (file is File && isImageFile(file.path)) {
+        if (!file.path.toLowerCase().endsWith('.enc')) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   /// Načte obrázky z adresáře
@@ -185,10 +202,13 @@ class StorageService {
     return encryptedFile;
   }
 
-  /// Načte a dešifruje obrázek
+  /// Načte a dešifruje obrázek (nebo vrátí nešifrovaná data)
   Future<Uint8List> loadDecryptedImage(File encryptedFile) async {
-    final encryptedBytes = await encryptedFile.readAsBytes();
-    return EncryptionService.decryptImage(encryptedBytes);
+    final bytes = await encryptedFile.readAsBytes();
+    if (encryptedFile.path.toLowerCase().endsWith('.enc')) {
+      return EncryptionService.decryptImage(bytes);
+    }
+    return bytes;
   }
 
   /// Smaže obrázek
@@ -273,6 +293,58 @@ class StorageService {
     }
 
     return totalExported;
+  }
+
+  /// Zašifruje všechny nešifrované obrázky v albu
+  Future<int> encryptAlbum(String albumName) async {
+    final albumsDir = await _getAlbumsDirectory();
+    final anonName = EncryptionService.anonymizeName(albumName);
+    final albumDir = Directory('${albumsDir.path}/$anonName');
+
+    if (!await albumDir.exists()) {
+      return 0;
+    }
+
+    int encryptedCount = 0;
+    final index = await _loadIndex();
+    final filesMap = index['files'] as Map<String, dynamic>;
+
+    await for (final entity in albumDir.list()) {
+      if (entity is File && isImageFile(entity.path)) {
+        if (!entity.path.toLowerCase().endsWith('.enc')) {
+          try {
+            // Načtení nešifrovaného obrázku
+            final imageBytes = await entity.readAsBytes();
+
+            // Zašifrování
+            final encryptedBytes = EncryptionService.encryptImage(imageBytes);
+
+            // Vytvoření nového anonymního názvu
+            final originalFileName = entity.path.split('/').last;
+            final anonFileName = EncryptionService.anonymizeName(
+                '${DateTime.now().millisecondsSinceEpoch}_$originalFileName');
+
+            // Uložení zašifrovaného souboru
+            final encryptedFile =
+                File('${albumDir.path}/$anonFileName.enc');
+            await encryptedFile.writeAsBytes(encryptedBytes);
+
+            // Smazání původního souboru
+            await entity.delete();
+
+            // Přidání do indexu
+            filesMap[anonFileName] = originalFileName;
+
+            encryptedCount++;
+          } catch (e) {
+            print('❌ Chyba při šifrování ${entity.path}: $e');
+          }
+        }
+      }
+    }
+
+    await _saveIndex(index);
+    return encryptedCount;
   }
 
   // ---------------------------------------------------------------------------
