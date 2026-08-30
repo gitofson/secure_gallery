@@ -87,14 +87,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _openBuyMeACoffee() async {
     final uri = Uri.parse('https://paypal.me/pastelina7');
     try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open PayPal link')),
-          );
-        }
+      // Nejprve zkusit externí prohlížeč/aplikaci
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        // Fallback: in-app webview
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
     } catch (e) {
       if (mounted) {

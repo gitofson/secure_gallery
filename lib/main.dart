@@ -46,7 +46,13 @@ class _AuthWrapperState extends State<AuthWrapper>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkPermissionsAndAuth();
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Nejdřív načíst nastavení autentizace — lifecycle handlery ho potřebují
+    _authEnabled = await SettingsService.getAuthEnabled();
+    await _checkPermissionsAndAuth();
   }
 
   @override
@@ -57,18 +63,19 @@ class _AuthWrapperState extends State<AuthWrapper>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!_authEnabled) return;
-
     // Při odchodu do pozadí okamžitě skrýt obsah (žádný flash obsahu)
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
-      if (_isAuthenticated) {
+      if (_authEnabled && _isAuthenticated) {
         setState(() => _isAuthenticated = false);
       }
     }
 
     // Po návratu z pozadí znovu vyžádat autentizaci
-    if (state == AppLifecycleState.resumed && !_isAuthenticated) {
+    if (state == AppLifecycleState.resumed &&
+        _authEnabled &&
+        !_isAuthenticated &&
+        !_isLoading) {
       _checkAuth();
     }
   }
