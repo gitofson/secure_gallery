@@ -443,6 +443,11 @@ class _AlbumListPageState extends State<AlbumListPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Obnovit',
+            onPressed: _loadAlbums,
+          ),
+          IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Exportovat všechna alba',
             onPressed: _exportAllAlbums,

@@ -29,6 +29,13 @@ class _SmbGalleryPageState extends State<SmbGalleryPage> {
     _loadImages();
   }
 
+  @override
+  void dispose() {
+    // Uvolni sdílené SMB spojení při opuštění stránky
+    SmbService.closeAll();
+    super.dispose();
+  }
+
   Future<void> _loadImages() async {
     setState(() {
       _images = null;
