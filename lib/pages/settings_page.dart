@@ -100,10 +100,12 @@ class _SettingsPageState extends State<SettingsPage> {
     final userCtrl = TextEditingController(text: existing?.username ?? '');
     final passCtrl = TextEditingController(text: existing?.password ?? '');
     final domainCtrl = TextEditingController(text: existing?.domain ?? '');
+    bool obscurePassword = true;
 
     final result = await showDialog<SmbGallery>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
         title: Text(existing == null ? 'Add SMB Gallery' : 'Edit SMB Gallery'),
         content: SingleChildScrollView(
           child: Column(
@@ -156,11 +158,20 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: passCtrl,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Password',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () => setDialogState(
+                        () => obscurePassword = !obscurePassword),
+                  ),
                 ),
-                obscureText: true,
+                obscureText: obscurePassword,
               ),
               const SizedBox(height: 12),
               TextField(
@@ -202,6 +213,7 @@ class _SettingsPageState extends State<SettingsPage> {
             child: const Text('Save'),
           ),
         ],
+        ),
       ),
     );
 
