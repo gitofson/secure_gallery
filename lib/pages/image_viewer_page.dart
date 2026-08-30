@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/storage_service.dart';
 
 /// Prohlížeč obrázků s podporou všech platforem
 class ImageViewerPage extends StatefulWidget {
@@ -120,11 +121,34 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         return InteractiveViewer(
           minScale: 0.5,
           maxScale: 4.0,
-          child: Image.file(
-            widget.images[index],
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
+          child: FutureBuilder<Uint8List>(
+            future: StorageService().loadDecryptedImage(widget.images[index]),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                return Image.memory(
+                  snapshot.data!,
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: double.infinity,
+                );
+              } else if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error, color: Colors.red, size: 64),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Chyba při načítání obrázku',
+                        style: TextStyle(color: Colors.grey[400]),
+                      ),
+                    ],
+                  ),
+                );
+              } else {
+                return const Center(child: CircularProgressIndicator());
+              }
+            },
           ),
         );
       },

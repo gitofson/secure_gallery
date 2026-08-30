@@ -1,8 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import '../models/album.dart';
+import 'encryption_service.dart';
+import 'settings_service.dart';
 
-/// Služba pro práci s úložištěm alb
+/// Služba pro práci s úložištěm alb (s podporou šifrování)
 class StorageService {
   static const String _albumsFolder = 'albums';
 
@@ -30,7 +34,7 @@ class StorageService {
     return albums;
   }
 
-  /// Načte obrázky z adresáře
+  /// Načte obrázky z adresáře (dešifrované)
   Future<List<File>> _loadImagesFromDirectory(Directory dir) async {
     final images = <File>[];
     await for (final file in dir.list()) {
@@ -57,13 +61,28 @@ class StorageService {
     }
   }
 
-  /// Uloží obrázek do alba
+  /// Uloží obrázek do alba (zašifrovaný)
   Future<File> saveImageToAlbum(String albumName, File sourceFile) async {
     final albumsDir = await _getAlbumsDirectory();
     final albumDir = Directory('${albumsDir.path}/$albumName');
     final fileName =
         '${DateTime.now().millisecondsSinceEpoch}_${sourceFile.path.split('/').last}';
-    return await sourceFile.copy('${albumDir.path}/$fileName');
+    
+    // Načtení a zašifrování obrázku
+    final imageBytes = await sourceFile.readAsBytes();
+    final encryptedBytes = EncryptionService.encryptImage(imageBytes);
+    
+    // Uložení zašifrovaného souboru
+    final encryptedFile = File('${albumDir.path}/$fileName.enc');
+    await encryptedFile.writeAsBytes(encryptedBytes);
+    
+    return encryptedFile;
+  }
+
+  /// Načte a dešifruje obrázek
+  Future<Uint8List> loadDecryptedImage(File encryptedFile) async {
+    final encryptedBytes = await encryptedFile.readAsBytes();
+    return EncryptionService.decryptImage(encryptedBytes);
   }
 
   /// Smaže obrázek
@@ -73,9 +92,52 @@ class StorageService {
     }
   }
 
-  /// Kontrola, zda je soubor obrázek
+  /// Přesune obrázky do archivního alba
+  Future<void> moveToArchive(List<File> images, String sourceAlbum) async {
+    final archiveFolder = await SettingsService.getArchiveFolder();
+    final albumsDir = await _getAlbumsDirectory();
+    final archiveDir = Directory('${albumsDir.path}/$archiveFolder');
+    
+    if (!await archiveDir.exists()) {
+      await archiveDir.create(recursive: true);
+    }
+
+    for (final image in images) {
+      final fileName = image.path.split('/').last;
+      final newPath = '${archiveDir.path}/$fileName';
+      await image.rename(newPath);
+    }
+  }
+
+  /// Exportuje obrázky do systémové galerie
+  Future<int> exportImagesToGallery(List<File> images) async {
+    int successCount = 0;
+    
+    for (final image in images) {
+      try {
+        final decryptedBytes = await loadDecryptedImage(image);
+        final fileName = image.path.split('/').last.replaceAll('.enc', '');
+        
+        final result = await ImageGallerySaverPlus.saveImage(
+          decryptedBytes,
+          quality: 100,
+          name: fileName,
+        );
+        
+        if (result['isSuccess'] == true) {
+          successCount++;
+        }
+      } catch (e) {
+        print('❌ Chyba při exportu ${image.path}: $e');
+      }
+    }
+    
+    return successCount;
+  }
+
+  /// Kontrola, zda je soubor obrázek (včetně .enc)
   bool isImageFile(String path) {
     final ext = path.toLowerCase().split('.').last;
-    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext);
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'enc'].contains(ext);
   }
 }
