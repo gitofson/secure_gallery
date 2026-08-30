@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'pages/album_list_page.dart';
 import 'services/encryption_service.dart';
 import 'services/settings_service.dart';
@@ -37,11 +38,27 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _isAuthenticated = false;
+  bool _hasStoragePermission = false;
 
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _checkPermissionsAndAuth();
+  }
+
+  Future<void> _checkPermissionsAndAuth() async {
+    // Kontrola oprávnění k úložišti
+    final storageStatus = await Permission.manageExternalStorage.status;
+    if (storageStatus.isGranted) {
+      setState(() => _hasStoragePermission = true);
+    } else {
+      // Vyžádání oprávnění
+      final result = await Permission.manageExternalStorage.request();
+      setState(() => _hasStoragePermission = result.isGranted);
+    }
+
+    // Kontrola autentizace
+    await _checkAuth();
   }
 
   Future<void> _checkAuth() async {
@@ -69,6 +86,36 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!_hasStoragePermission) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.sd_storage, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Storage Permission Required',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This app needs access to external storage to save your encrypted photos. '
+                'Please grant "All files access" permission in system settings.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _checkPermissionsAndAuth,
+                icon: const Icon(Icons.settings),
+                label: const Text('Grant Permission'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
