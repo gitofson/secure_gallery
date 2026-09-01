@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:smb_connect/smb_connect.dart';
 import 'settings_service.dart';
 
-/// Model pro SMB galerii (konfigurace + stav)
+/// Model for SMB gallery (configuration + state)
 class SmbGallery {
   final String name;
   final String host;
@@ -59,7 +62,7 @@ class SmbGallery {
   }
 }
 
-/// Soubor na SMB sdílení (náhled)
+/// File on an SMB share (preview)
 class SmbImageFile {
   final String name;
   final String path;
@@ -72,48 +75,46 @@ class SmbImageFile {
   });
 }
 
-/// Služba pro přístup k SMB galeriím.
+/// Service for accessing SMB galleries.
 ///
-/// Robustnost proti mrznutí:
-/// - každé připojení má krátký timeout (8 s)
-/// - každá operace (list/read) má timeout (10 s)
-/// - všechny operace pro jednu galerii sdílí jedno spojení (zámek),
-///   takže se server nezahltí desítkami souběžných připojení
-/// - každé připojení má krátký timeout (8 s)
-/// - každá operace (list/read) má timeout (15 s)
-/// - žádná operace neblokuje UI — vše běží asynchronně
+/// Robustness against freezing:
+/// - each connection has a short timeout (8 s)
+/// - each operation (list/read) has a timeout (15 s)
+/// - all operations for one gallery share a single connection (lock),
+///   so the server is not flooded with dozens of concurrent connections
+/// - no operation blocks the UI — everything runs asynchronously
 class SmbService {
   static const Duration _connectTimeout = Duration(seconds: 8);
   static const Duration _operationTimeout = Duration(seconds: 15);
 
-  /// Jedno aktivní spojení na galerii + zámek (serializace operací)
+  /// One active connection per gallery + lock (operation serialization)
   static final Map<String, SmbConnect> _connections = {};
   static final Map<String, Future<void>> _locks = {};
 
-  /// Cache náhledů v RAM (klíč = cesta souboru)
+  /// Thumbnail cache in RAM (key = file path)
   static final Map<String, Uint8List> _thumbnailCache = {};
 
   static const List<String> _imageExtensions = [
     '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic',
   ];
 
-  /// Načte seznam SMB galerií z nastavení
+  /// Loads the list of SMB galleries from settings
   static Future<List<SmbGallery>> loadGalleries() async {
     final json = await SettingsService.getSmbGalleries();
     if (json == null || json.isEmpty) return [];
     return SmbGallery.decodeList(json);
   }
 
-  /// Uloží seznam SMB galerií do nastavení
+  /// Saves the list of SMB galleries to settings
   static Future<void> saveGalleries(List<SmbGallery> galleries) async {
     await SettingsService.setSmbGalleries(SmbGallery.encodeList(galleries));
   }
 
-  /// Klíč galerie pro mapy spojení/zámků
+  /// Gallery key for connection/lock maps
   static String _key(SmbGallery g) =>
       '${g.host}|${g.share}|${g.path}|${g.username}';
 
-  /// Získá (nebo vytvoří) sdílené spojení pro galerii.
+  /// Gets (or creates) a shared connection for the gallery.
   static Future<SmbConnect> _getConnection(SmbGallery gallery) async {
     final key = _key(gallery);
     final existing = _connections[key];
@@ -129,7 +130,7 @@ class SmbService {
     return connect;
   }
 
-  /// Zavře a zahodí spojení galerie (po chybě, aby se příště navázalo nové).
+  /// Closes and discards the gallery connection (after an error, so a new one is established next time).
   static Future<void> _dropConnection(SmbGallery gallery) async {
     final key = _key(gallery);
     final connect = _connections.remove(key);
@@ -140,15 +141,15 @@ class SmbService {
     }
   }
 
-  /// Provede akci pod zámkem pro danou galerii — operace nad jedním
-  /// spojením se serializují (server ani klient nezahltíme souběžnými
-  /// připojeními, což způsobovalo přerušené streamy a bílé náhledy).
+  /// Performs an action under a lock for the given gallery — operations on a
+  /// single connection are serialized (we don't flood the server or client
+  /// with concurrent connections, which caused interrupted streams and blank thumbnails).
   static Future<T> _withConnection<T>(
     SmbGallery gallery,
     Future<T> Function(SmbConnect connect) action,
   ) async {
     final key = _key(gallery);
-    // Počkej na dokončení předchozí operace pro tuto galerii
+    // Wait for the previous operation for this gallery to finish
     while (_locks.containsKey(key)) {
       try {
         await _locks[key];
@@ -161,7 +162,7 @@ class SmbService {
       final connect = await _getConnection(gallery);
       return await action(connect).timeout(_operationTimeout);
     } catch (e) {
-      // Při chybě spojení zahodíme — příště se naváže čerstvé
+      // On connection error we discard it — a fresh one will be established next time
       await _dropConnection(gallery);
       rethrow;
     } finally {
@@ -170,7 +171,7 @@ class SmbService {
     }
   }
 
-  /// Uzavře všechna spojení (např. při opuštění SMB stránky)
+  /// Closes all connections (e.g. when leaving the SMB page)
   static Future<void> closeAll() async {
     final keys = _connections.keys.toList();
     for (final key in keys) {
@@ -181,8 +182,8 @@ class SmbService {
     }
   }
 
-  /// Otestuje připojení k SMB galerii.
-  /// Vrací null při úspěchu, jinak text chyby pro zobrazení uživateli.
+  /// Tests connection to the SMB gallery.
+  /// Returns null on success, otherwise error text to display to the user.
   static Future<String?> testConnection(SmbGallery gallery) async {
     try {
       await _withConnection(gallery, (connect) async {
@@ -196,8 +197,8 @@ class SmbService {
     }
   }
 
-  /// Načte seznam obrázků v SMB galerii.
-  /// Při chybě vyhodí výjimku s čitelným popisem (UI ji zobrazí).
+  /// Loads the list of images in the SMB gallery.
+  /// On error throws an exception with a readable description (UI displays it).
   static Future<List<SmbImageFile>> listImages(SmbGallery gallery) async {
     try {
       return await _withConnection(gallery, (connect) async {
@@ -220,22 +221,42 @@ class SmbService {
     }
   }
 
-  /// Načte obsah jednoho obrázku ze SMB (pro náhled/prohlížení).
-  /// Výsledek se ukládá do cache; vrací null při chybě nebo neúplných datech.
+  /// Loads content of one image from SMB (for preview/viewing).
+  ///
+  /// Speed optimizations (cache layers):
+  /// 1. RAM cache — instant
+  /// 2. Disk cache (temporary folder, survives app restart)
+  /// 3. only then network read
+  /// Returns null on error or incomplete data.
   static Future<Uint8List?> readImage(
       SmbGallery gallery, SmbImageFile image) async {
-    // Cache — náhled se stáhne jen jednou
+    // 1. RAM cache
     final cached = _thumbnailCache[image.path];
     if (cached != null) return cached;
 
+    // 2. Disk cache (key = path hash + file size)
+    final cacheFile = await _diskCacheFile(gallery, image);
+    if (cacheFile != null && await cacheFile.exists()) {
+      try {
+        final bytes = await cacheFile.readAsBytes();
+        if (_isValidImage(bytes, image.size)) {
+          _thumbnailCache[image.path] = bytes;
+          return bytes;
+        }
+        // Corrupt cache file — delete
+        await cacheFile.delete();
+      } catch (_) {}
+    }
+
+    // 3. Network read
     try {
       final bytes = await _withConnection(gallery, (connect) async {
         final file = await connect.file(image.path);
         final stream = await connect.openRead(file);
-        // POZOR: smb_connect yielduje opakovaně TENTÝŽ buffer
-        // (viz smbOpenRead v knihovně) — copy:true je nutné, jinak
-        // všechny chunky ukazují do jednoho přepisovaného bufferu
-        // a výsledek jsou poškozená data (červený čtvereček).
+        // WARNING: smb_connect repeatedly yields the SAME buffer
+        // (see smbOpenRead in the library) — copy:true is required, otherwise
+        // all chunks point into one overwritten buffer
+        // and the result is corrupt data (red square).
         final builder = BytesBuilder(copy: true);
         await for (final chunk in stream) {
           builder.add(chunk);
@@ -243,20 +264,56 @@ class SmbService {
         return builder.takeBytes();
       });
 
-      // Validace: neúplná/poškozená data neukládat do cache
+      // Validation: do not cache incomplete/corrupt data
       if (!_isValidImage(bytes, image.size)) return null;
 
       _thumbnailCache[image.path] = bytes;
+      // Save to disk for next launch (async, non-blocking)
+      if (cacheFile != null) {
+        cacheFile.writeAsBytes(bytes).catchError((_) => cacheFile);
+      }
       return bytes;
     } catch (_) {
       return null;
     }
   }
 
-  /// Základní validace stažených dat (velikost + magic bytes)
+  /// File in the disk cache for the given SMB image
+  static Future<File?> _diskCacheFile(
+      SmbGallery gallery, SmbImageFile image) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final cacheDir = Directory('${dir.path}/smb_thumbs');
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+      // Key: hash(host|share|path) + size (detects file change)
+      final key = md5
+          .convert(utf8.encode(
+              '${gallery.host}|${gallery.share}|${image.path}|${image.size}'))
+          .toString();
+      return File('${cacheDir.path}/$key');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Clears the disk thumbnail cache (e.g. on gallery refresh)
+  static Future<void> clearThumbnailCache() async {
+    _thumbnailCache.clear();
+    try {
+      final dir = await getTemporaryDirectory();
+      final cacheDir = Directory('${dir.path}/smb_thumbs');
+      if (await cacheDir.exists()) {
+        await cacheDir.delete(recursive: true);
+      }
+    } catch (_) {}
+  }
+
+  /// Basic validation of downloaded data (size + magic bytes)
   static bool _isValidImage(Uint8List bytes, int expectedSize) {
     if (bytes.isEmpty) return false;
-    // Pokud známe očekávanou velikost a data jsou výrazně menší, jsou neúplná
+    // If we know the expected size and data is significantly smaller, it is incomplete
     if (expectedSize > 0 && bytes.length < expectedSize * 0.9) return false;
     // Magic bytes: JPEG (FF D8), PNG (89 50), GIF (47 49), BMP (42 4D),
     // WEBP (52 49 46 46), HEIC (.... 66 74 79 70)
@@ -275,11 +332,11 @@ class SmbService {
     return true;
   }
 
-  /// Cesta ke složce pro smb_connect.
+  /// Folder path for smb_connect.
   ///
-  /// POZOR: smb_connect parsuje share z prvního segmentu cesty
-  /// (viz SmbConnect.getShare), proto cesta MUSÍ obsahovat název share:
-  ///   "share" nebo "share/složka/podložka"
+  /// WARNING: smb_connect parses the share from the first path segment
+  /// (see SmbConnect.getShare), so the path MUST contain the share name:
+  ///   "share" or "share/folder/subfolder"
   static String _folderPath(SmbGallery gallery) {
     final share = gallery.share.trim().replaceAll(RegExp(r'^[/\\]+'), '');
     final p = gallery.path.trim().replaceAll(RegExp(r'^[/\\]+'), '');
@@ -287,14 +344,14 @@ class SmbService {
     return '$share/$p';
   }
 
-  /// Převede výjimku na čitelný text chyby
+  /// Converts exception to readable error text
   static String _errorText(Object e) {
     var text = e.toString();
     if (text.startsWith('Exception: ')) {
       text = text.substring('Exception: '.length);
     }
     if (e is TimeoutException) {
-      return 'Timeout — server neodpovídá (zkontroluj host/síť)';
+      return 'Timeout — server not responding (check host/network)';
     }
     return text;
   }

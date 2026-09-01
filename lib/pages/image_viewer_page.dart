@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/storage_service.dart';
 
-/// Prohlížeč obrázků s podporou všech platforem
+/// Image viewer with support for all platforms
 class ImageViewerPage extends StatefulWidget {
   final List<File> images;
   final int startIndex;
@@ -139,7 +139,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       const Icon(Icons.error, color: Colors.red, size: 64),
                       const SizedBox(height: 16),
                       Text(
-                        'Chyba při načítání obrázku',
+                        'Error loading image',
                         style: TextStyle(color: Colors.grey[400]),
                       ),
                     ],
@@ -301,7 +301,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Text(
-            '← → pro navigaci, Esc pro návrat',
+            '← → to navigate, Esc to go back',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 12,

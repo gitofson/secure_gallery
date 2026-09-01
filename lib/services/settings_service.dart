@@ -1,74 +1,74 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Služba pro nastavení aplikace
+/// Service for application settings
 class SettingsService {
-  static const String _keyDefaultAction = 'default_action'; // 'copy' nebo 'move'
+  static const String _keyDefaultAction = 'default_action'; // 'copy' or 'move'
   static const String _keyArchiveFolder = 'archive_folder';
   static const String _keyAuthEnabled = 'auth_enabled';
   static const String _keyStoragePath = 'storage_path';
   static const String _keySmbGalleries = 'smb_galleries';
 
-  /// Získá výchozí akci pro import obrázků ('copy' nebo 'move')
+  /// Gets the default action for image import ('copy' or 'move')
   static Future<String> getDefaultAction() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyDefaultAction) ?? 'copy';
   }
 
-  /// Nastaví výchozí akci pro import obrázků
+  /// Sets the default action for image import
   static Future<void> setDefaultAction(String action) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyDefaultAction, action);
   }
 
-  /// Získá název archivní složky
+  /// Gets the archive folder name
   static Future<String> getArchiveFolder() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyArchiveFolder) ?? 'archive';
   }
 
-  /// Nastaví název archivní složky
+  /// Sets the archive folder name
   static Future<void> setArchiveFolder(String folder) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyArchiveFolder, folder);
   }
 
-  /// Získá, zda je zapnutá autentizace
+  /// Gets whether authentication is enabled
   static Future<bool> getAuthEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyAuthEnabled) ?? false;
   }
 
-  /// Nastaví, zda je zapnutá autentizace
+  /// Sets whether authentication is enabled
   static Future<void> setAuthEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyAuthEnabled, enabled);
   }
 
-  /// Získá cestu k úložišti (null = výchozí interní)
+  /// Gets the storage path (null = default internal)
   static Future<String?> getStoragePath() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyStoragePath);
   }
 
-  /// Nastaví cestu k úložišti
+  /// Sets the storage path
   static Future<void> setStoragePath(String path) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyStoragePath, path);
   }
 
-  /// Resetuje cestu k úložišti na výchozí
+  /// Resets the storage path to default
   static Future<void> resetStoragePath() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyStoragePath);
   }
 
-  /// Získá seznam SMB galerií (JSON string)
+  /// Gets the list of SMB galleries (JSON string)
   static Future<String?> getSmbGalleries() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keySmbGalleries);
   }
 
-  /// Nastaví seznam SMB galerií (JSON string)
+  /// Sets the list of SMB galleries (JSON string)
   static Future<void> setSmbGalleries(String json) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySmbGalleries, json);

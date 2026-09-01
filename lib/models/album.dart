@@ -1,6 +1,6 @@
 import 'dart:io';
 
-/// Model pro album (adresář obrázků)
+/// Model for an album (directory of images)
 class Album {
   final String name;
   final List<File> images;

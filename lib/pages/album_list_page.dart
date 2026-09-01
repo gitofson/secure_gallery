@@ -7,7 +7,7 @@ import 'album_detail_page.dart';
 import 'settings_page.dart';
 import 'smb_gallery_page.dart';
 
-/// Hlavní stránka se seznamem alb
+/// Main page with the list of albums
 class AlbumListPage extends StatefulWidget {
   const AlbumListPage({super.key});
 
@@ -29,8 +29,8 @@ class _AlbumListPageState extends State<AlbumListPage> {
 
   Future<void> _loadAlbums() async {
     try {
-      // Lokální alba i SMB galerie se načítají paralelně;
-      // SMB načtení má timeout, takže nedostupná síť neblokuje UI.
+      // Local albums and SMB galleries load in parallel;
+      // SMB loading has a timeout, so an unavailable network does not block the UI.
       final results = await Future.wait([
         _storage.loadAlbums(),
         SmbService.loadGalleries(),
@@ -44,14 +44,14 @@ class _AlbumListPageState extends State<AlbumListPage> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chyba při načítání alb: $e')),
+          SnackBar(content: Text('Error loading albums: $e')),
         );
       }
     }
   }
 
   Future<void> _createAlbum() async {
-    // Vygenerovat výchozí název
+    // Generate default name
     final defaultName = _generateDefaultAlbumName();
     final controller = TextEditingController(text: defaultName);
 
@@ -69,7 +69,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Nové album',
+                'New Album',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -79,8 +79,8 @@ class _AlbumListPageState extends State<AlbumListPage> {
               TextField(
                 controller: controller,
                 decoration: const InputDecoration(
-                  labelText: 'Název alba',
-                  hintText: 'např. Dovolená 2024',
+                  labelText: 'Album name',
+                  hintText: 'e.g. Vacation 2024',
                   border: OutlineInputBorder(),
                 ),
                 autofocus: true,
@@ -95,13 +95,13 @@ class _AlbumListPageState extends State<AlbumListPage> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Zrušit'),
+                    child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: () =>
                         Navigator.pop(context, controller.text.trim()),
-                    child: const Text('Vytvořit'),
+                    child: const Text('Create'),
                   ),
                 ],
               ),
@@ -117,20 +117,20 @@ class _AlbumListPageState extends State<AlbumListPage> {
         await _loadAlbums();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Album "$result" vytvořeno')),
+            SnackBar(content: Text('Album "$result" created')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při vytváření alba: $e')),
+            SnackBar(content: Text('Error creating album: $e')),
           );
         }
       }
     }
   }
 
-  /// Vygeneruje výchozí název alba ve formátu g001, g002, ...
+  /// Generates a default album name in the format g001, g002, ...
   String _generateDefaultAlbumName() {
     int maxNumber = 0;
 
@@ -153,18 +153,18 @@ class _AlbumListPageState extends State<AlbumListPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Smazat album?'),
+        title: const Text('Delete album?'),
         content:
-            Text('Album "${album.name}" a všechny jeho obrázky budou smazány.'),
+            Text('Album "${album.name}" and all its images will be deleted.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Zrušit'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Smazat'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -176,20 +176,20 @@ class _AlbumListPageState extends State<AlbumListPage> {
         await _loadAlbums();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Album "${album.name}" smazáno')),
+            SnackBar(content: Text('Album "${album.name}" deleted')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při mazání alba: $e')),
+            SnackBar(content: Text('Error deleting album: $e')),
           );
         }
       }
     }
   }
 
-  /// Zobrazí menu po dlouhém stisku na album (přejmenovat / smazat)
+  /// Shows a menu on long-press of an album (rename / delete)
   void _showAlbumOptions(Album album) {
     showModalBottomSheet(
       context: context,
@@ -198,7 +198,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit),
-              title: const Text('Přejmenovat album'),
+              title: const Text('Rename Album'),
               onTap: () {
                 Navigator.pop(context);
                 _renameAlbum(album);
@@ -206,7 +206,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Smazat album',
+              title: const Text('Delete album',
                   style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(context);
@@ -225,11 +225,11 @@ class _AlbumListPageState extends State<AlbumListPage> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Přejmenovat album'),
+        title: const Text('Rename Album'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            labelText: 'Nový název',
+            labelText: 'New name',
             border: OutlineInputBorder(),
           ),
           autofocus: true,
@@ -238,11 +238,11 @@ class _AlbumListPageState extends State<AlbumListPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Zrušit'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Přejmenovat'),
+            child: const Text('Rename'),
           ),
         ],
       ),
@@ -254,13 +254,13 @@ class _AlbumListPageState extends State<AlbumListPage> {
         await _loadAlbums();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Album přejmenováno na "$result"')),
+            SnackBar(content: Text('Album renamed to "$result"')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při přejmenování: $e')),
+            SnackBar(content: Text('Error renaming: $e')),
           );
         }
       }
@@ -283,18 +283,18 @@ class _AlbumListPageState extends State<AlbumListPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Exportovat všechna alba?'),
+        title: const Text('Export all albums?'),
         content: const Text(
-          'Všechny obrázky ze všech alb budou dešifrovány a exportovány do systémové galerie. Tato akce může chvíli trvat.',
+          'All images from all albums will be decrypted and exported to the system gallery. This may take a while.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Zrušit'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Exportovat'),
+            child: const Text('Export'),
           ),
         ],
       ),
@@ -302,11 +302,11 @@ class _AlbumListPageState extends State<AlbumListPage> {
 
     if (confirmed == true) {
       try {
-        // Zobrazit progress
+        // Show progress
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Exportuji všechna alba...'),
+              content: Text('Exporting all albums...'),
               duration: Duration(seconds: 30),
             ),
           );
@@ -317,14 +317,14 @@ class _AlbumListPageState extends State<AlbumListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Exportováno $count obrázků')),
+            SnackBar(content: Text('Exported $count images')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při exportu: $e')),
+            SnackBar(content: Text('Export error: $e')),
           );
         }
       }
@@ -335,18 +335,18 @@ class _AlbumListPageState extends State<AlbumListPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Zašifrovat album?'),
+        title: const Text('Encrypt album?'),
         content: Text(
-          'Album "${album.name}" obsahuje nešifrované obrázky. Chcete je zašifrovat? Tato akce může chvíli trvat.',
+          'Album "${album.name}" contains unencrypted images. Encrypt them? This may take a while.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Zrušit'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Zašifrovat'),
+            child: const Text('Encrypt'),
           ),
         ],
       ),
@@ -357,7 +357,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Šifruji album...'),
+              content: Text('Encrypting album...'),
               duration: Duration(seconds: 30),
             ),
           );
@@ -368,7 +368,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Zašifrováno $count obrázků')),
+            SnackBar(content: Text('Encrypted $count images')),
           );
           await _loadAlbums();
         }
@@ -376,7 +376,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při šifrování: $e')),
+            SnackBar(content: Text('Encryption error: $e')),
           );
         }
       }
@@ -387,18 +387,18 @@ class _AlbumListPageState extends State<AlbumListPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Dešifrovat album?'),
+        title: const Text('Decrypt album?'),
         content: Text(
-          'Album "${album.name}" obsahuje zašifrované obrázky. Chcete je dešifrovat a obnovit původní názvy souborů? Tato akce může chvíli trvat.',
+          'Album "${album.name}" contains encrypted images. Decrypt them and restore original file names? This may take a while.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Zrušit'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Dešifrovat'),
+            child: const Text('Decrypt'),
           ),
         ],
       ),
@@ -409,7 +409,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Dešifruji album...'),
+              content: Text('Decrypting album...'),
               duration: Duration(seconds: 30),
             ),
           );
@@ -420,7 +420,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Dešifrováno $count obrázků')),
+            SnackBar(content: Text('Decrypted $count images')),
           );
           await _loadAlbums();
         }
@@ -428,7 +428,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při dešifrování: $e')),
+            SnackBar(content: Text('Decryption error: $e')),
           );
         }
       }
@@ -444,12 +444,12 @@ class _AlbumListPageState extends State<AlbumListPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Obnovit',
+            tooltip: 'Refresh',
             onPressed: _loadAlbums,
           ),
           IconButton(
             icon: const Icon(Icons.download),
-            tooltip: 'Exportovat všechna alba',
+            tooltip: 'Export all albums',
             onPressed: _exportAllAlbums,
           ),
           IconButton(
@@ -488,7 +488,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Zatím nemáte žádná alba',
+            'No albums yet',
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey[600],
@@ -496,7 +496,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Vytvořte album a přidejte do něj obrázky',
+            'Create an album and add images to it',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[500],
@@ -519,7 +519,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
       ),
       itemCount: totalCount,
       itemBuilder: (context, index) {
-        // Nejdřív lokální alba, pak SMB galerie
+        // Local albums first, then SMB galleries
         if (index < _albums.length) {
           final album = _albums[index];
           return _AlbumCard(
@@ -549,7 +549,7 @@ class _AlbumListPageState extends State<AlbumListPage> {
   }
 }
 
-/// Karta alba v gridu
+/// Album card in the grid
 class _AlbumCard extends StatelessWidget {
   final Album album;
   final VoidCallback onTap;
@@ -626,7 +626,7 @@ class _AlbumCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        'Nešifrovaná data',
+                        'Unencrypted data',
                         style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ),
@@ -637,7 +637,7 @@ class _AlbumCard extends StatelessWidget {
                         color: Colors.white,
                         size: 28,
                       ),
-                      tooltip: 'Zašifrovat album',
+                      tooltip: 'Encrypt album',
                     ),
                   ],
                 ),
@@ -652,7 +652,7 @@ class _AlbumCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        'Zašifrováno',
+                        'Encrypted',
                         style: TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
@@ -663,7 +663,7 @@ class _AlbumCard extends StatelessWidget {
                         color: Colors.white,
                         size: 24,
                       ),
-                      tooltip: 'Dešifrovat album',
+                      tooltip: 'Decrypt album',
                     ),
                   ],
                 ),
@@ -684,7 +684,7 @@ class _AlbumCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${album.images.length} obrázků',
+                    '${album.images.length} images',
                     style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 14,
@@ -700,7 +700,7 @@ class _AlbumCard extends StatelessWidget {
   }
 }
 
-/// Karta SMB síťové galerie v gridu
+/// SMB network gallery card in the grid
 class _SmbGalleryCard extends StatelessWidget {
   final SmbGallery gallery;
   final VoidCallback onTap;

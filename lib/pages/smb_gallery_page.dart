@@ -5,8 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import '../services/smb_service.dart';
 import '../services/storage_service.dart';
 
-/// Detail SMB galerie — prohlížení a import obrázků ze síťového disku.
-/// Všechny síťové operace mají timeouty, takže aplikace nikdy nezamrzne.
+/// SMB gallery detail — browsing and importing images from a network drive.
+/// All network operations have timeouts, so the app never freezes.
 class SmbGalleryPage extends StatefulWidget {
   final SmbGallery gallery;
 
@@ -17,8 +17,8 @@ class SmbGalleryPage extends StatefulWidget {
 }
 
 class _SmbGalleryPageState extends State<SmbGalleryPage> {
-  List<SmbImageFile>? _images; // null = načítá se
-  String? _loadError; // null = bez chyby
+  List<SmbImageFile>? _images; // null = loading
+  String? _loadError; // null = no error
   final Set<int> _selectedIndices = {};
   bool _isSelectionMode = false;
   bool _isImporting = false;
@@ -31,7 +31,7 @@ class _SmbGalleryPageState extends State<SmbGalleryPage> {
 
   @override
   void dispose() {
-    // Uvolni sdílené SMB spojení při opuštění stránky
+    // Release shared SMB connection when leaving page
     SmbService.closeAll();
     super.dispose();
   }
@@ -75,11 +75,11 @@ class _SmbGalleryPageState extends State<SmbGalleryPage> {
     });
   }
 
-  /// Importuje vybrané obrázky ze SMB do lokálního šifrovaného alba
+  /// Imports selected images from SMB into a local encrypted album
   Future<void> _importSelected() async {
     if (_selectedIndices.isEmpty || _isImporting) return;
 
-    // Vybrat cílové album
+    // Select target album
     final albums = await StorageService().loadAlbums();
     if (!mounted) return;
 
@@ -120,7 +120,7 @@ class _SmbGalleryPageState extends State<SmbGalleryPage> {
         final bytes = await SmbService.readImage(widget.gallery, smbImage);
         if (bytes == null) continue;
 
-        // Uložit dočasně lokálně a pak importovat (zašifrovat)
+        // Save temporarily locally and then import (encrypt)
         final tempFile = File('${tempDir.path}/${smbImage.name}');
         await tempFile.writeAsBytes(bytes);
         await StorageService().saveImageToAlbum(targetAlbum, tempFile);
@@ -306,7 +306,7 @@ class _SmbGalleryPageState extends State<SmbGalleryPage> {
   }
 }
 
-/// Náhled SMB obrázku — načítá se asynchronně s timeoutem
+/// SMB image thumbnail — loads asynchronously with a timeout
 class _SmbThumbnail extends StatelessWidget {
   final SmbGallery gallery;
   final SmbImageFile image;

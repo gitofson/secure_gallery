@@ -7,7 +7,7 @@ import '../services/storage_service.dart';
 import '../services/settings_service.dart';
 import 'image_viewer_page.dart';
 
-/// Detail alba - grid obrázků
+/// Album detail - image grid
 class AlbumDetailPage extends StatefulWidget {
   final Album album;
   final VoidCallback onAlbumChanged;
@@ -101,7 +101,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     }
   }
 
-  /// Odstraní vybrané obrázky ze seznamu (od konce, aby se neposunuly indexy)
+  /// Removes selected images from the list (from the end, so indices don't shift)
   void _removeSelectedFromList() {
     setState(() {
       final sortedIndices = _selectedIndices.toList()
@@ -113,11 +113,11 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     });
   }
 
-  /// Přesune vybrané obrázky do jiného alba
+  /// Moves selected images to another album
   Future<void> _moveSelectedToAlbum() async {
     if (_selectedIndices.isEmpty) return;
 
-    // Načíst seznam alb (kromě aktuálního)
+    // Load album list (except current)
     final albums = await _storage.loadAlbums();
     final otherAlbums =
         albums.where((a) => a.name != widget.album.name).toList();
@@ -126,7 +126,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
 
     if (otherAlbums.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Žádné jiné album neexistuje')),
+        const SnackBar(content: Text('No other album exists')),
       );
       return;
     }
@@ -134,7 +134,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     final targetAlbum = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Přesunout do alba'),
+        title: const Text('Move to album'),
         children: otherAlbums.map((album) {
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(context, album.name),
@@ -171,13 +171,13 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
-                  Text('Přesunuto $movedCount obrázků do "$targetAlbum"')),
+                  Text('Moved $movedCount images to "$targetAlbum"')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chyba při přesunu: $e')),
+          SnackBar(content: Text('Move error: $e')),
         );
       }
     }
@@ -214,18 +214,18 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Exportovat album?'),
+        title: const Text('Export album?'),
         content: Text(
-          'Všechny obrázky z alba "${widget.album.name}" budou dešifrovány a exportovány do systémové galerie.',
+          'All images from album "${widget.album.name}" will be decrypted and exported to the system gallery.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Zrušit'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Exportovat'),
+            child: const Text('Export'),
           ),
         ],
       ),
@@ -239,13 +239,13 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Exportováno $successCount obrázků z alba "${widget.album.name}"')),
+            SnackBar(content: Text('Exported $successCount images from album "${widget.album.name}"')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při exportu: $e')),
+            SnackBar(content: Text('Export error: $e')),
           );
         }
       } finally {
@@ -281,7 +281,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chyba při výběru obrázku: $e')),
+          SnackBar(content: Text('Error picking image: $e')),
         );
       }
     }
@@ -299,12 +299,12 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         );
         newImages.add(savedFile);
         
-        // Pokud je výchozí akce "move", smažeme původní soubor
+        // If default action is "move", delete the original file
         if (defaultAction == 'move') {
           try {
             await File(file.path).delete();
           } catch (e) {
-            print('⚠️ Nelze smazat původní soubor: $e');
+            print('⚠️ Cannot delete original file: $e');
           }
         }
       }
@@ -316,13 +316,13 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Přidáno ${files.length} obrázků')),
+          SnackBar(content: Text('Added ${files.length} images')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chyba při ukládání: $e')),
+          SnackBar(content: Text('Save error: $e')),
         );
       }
     }
@@ -332,17 +332,17 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Smazat obrázek?'),
-        content: const Text('Obrázek bude trvale smazán.'),
+        title: const Text('Delete image?'),
+        content: const Text('The image will be permanently deleted.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Zrušit'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Smazat'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -358,7 +358,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Chyba při mazání: $e')),
+            SnackBar(content: Text('Delete error: $e')),
           );
         }
       }
@@ -386,7 +386,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Vybrat z galerie'),
+              title: const Text('Choose from gallery'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
@@ -394,7 +394,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Vybrat více obrázků'),
+              title: const Text('Select multiple images'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery, multi: true);
@@ -402,7 +402,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('Fotovat'),
+              title: const Text('Take photo'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera);
@@ -426,7 +426,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             ? [
                 IconButton(
                   icon: const Icon(Icons.drive_file_move),
-                  tooltip: 'Přesunout do alba',
+                  tooltip: 'Move to album',
                   onPressed: _moveSelectedToAlbum,
                 ),
                 IconButton(
@@ -448,7 +448,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             : [
                 IconButton(
                   icon: const Icon(Icons.download),
-                  tooltip: 'Exportovat celé album',
+                  tooltip: 'Export entire album',
                   onPressed: _exportAlbum,
                 ),
               ],
@@ -463,7 +463,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
           : FloatingActionButton.extended(
               onPressed: _showImageSourceDialog,
               icon: const Icon(Icons.add_a_photo),
-              label: const Text('Přidat'),
+              label: const Text('Add'),
             ),
     );
   }
@@ -480,7 +480,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Album je prázdné',
+            'Album is empty',
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey[600],
@@ -521,7 +521,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
   }
 }
 
-/// Náhled obrázku v gridu (s dešifrováním a výběrem)
+/// Image thumbnail in grid (with decryption and selection)
 class _ImageThumbnail extends StatelessWidget {
   final File image;
   final bool isSelected;
@@ -569,7 +569,7 @@ class _ImageThumbnail extends StatelessWidget {
                       height: double.infinity,
                     );
                   } else if (snapshot.hasError) {
-                    print('❌ Chyba náhledu ${image.path}: ${snapshot.error}');
+                    print('❌ Thumbnail error ${image.path}: ${snapshot.error}');
                     return Container(
                       color: Colors.grey[300],
                       child: const Icon(Icons.error, color: Colors.red),

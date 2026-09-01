@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Wrapper pro autentizaci — kontroluje, zda je zapnutá
+/// Wrapper for authentication — checks whether it is enabled
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
@@ -50,7 +50,7 @@ class _AuthWrapperState extends State<AuthWrapper>
   }
 
   Future<void> _init() async {
-    // Nejdřív načíst nastavení autentizace — lifecycle handlery ho potřebují
+    // First load authentication settings — lifecycle handlers need it
     _authEnabled = await SettingsService.getAuthEnabled();
     await _checkPermissionsAndAuth();
   }
@@ -63,7 +63,7 @@ class _AuthWrapperState extends State<AuthWrapper>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Při odchodu do pozadí okamžitě skrýt obsah (žádný flash obsahu)
+    // Immediately hide content when going to background (no content flash)
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       if (_authEnabled && _isAuthenticated) {
@@ -71,7 +71,7 @@ class _AuthWrapperState extends State<AuthWrapper>
       }
     }
 
-    // Po návratu z pozadí znovu vyžádat autentizaci
+    // Request authentication again after returning from background
     if (state == AppLifecycleState.resumed &&
         _authEnabled &&
         !_isAuthenticated &&
@@ -81,22 +81,22 @@ class _AuthWrapperState extends State<AuthWrapper>
   }
 
   Future<void> _checkPermissionsAndAuth() async {
-    // Kontrola oprávnění k úložišti
+    // Check storage permission
     final storageStatus = await Permission.manageExternalStorage.status;
     if (storageStatus.isGranted) {
       setState(() => _hasStoragePermission = true);
     } else {
-      // Vyžádání oprávnění
+      // Request permission
       final result = await Permission.manageExternalStorage.request();
       setState(() => _hasStoragePermission = result.isGranted);
     }
 
-    // Kontrola autentizace
+    // Check authentication
     await _checkAuth();
   }
 
   Future<void> _checkAuth() async {
-    // Inicializace šifrování až po udělení oprávnění
+    // Initialize encryption only after permission is granted
     if (_hasStoragePermission) {
       await EncryptionService.initialize();
     }
@@ -104,7 +104,7 @@ class _AuthWrapperState extends State<AuthWrapper>
     _authEnabled = await SettingsService.getAuthEnabled();
 
     if (!_authEnabled) {
-      // Autentizace není zapnutá — povolit přístup
+      // Authentication is not enabled — allow access
       setState(() {
         _isAuthenticated = true;
         _isLoading = false;
@@ -112,7 +112,7 @@ class _AuthWrapperState extends State<AuthWrapper>
       return;
     }
 
-    // Autentizace je zapnutá — ověřit uživatele
+    // Authentication is enabled — verify the user
     if (_authInProgress) return;
     _authInProgress = true;
     final authenticated = await AuthService.authenticate();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/settings_service.dart';
@@ -6,7 +7,7 @@ import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../services/smb_service.dart';
 
-/// Stránka nastavení aplikace
+/// Application settings page
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -91,7 +92,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  /// Dialog pro přidání/úpravu SMB galerie
+  /// Dialog for adding/editing an SMB gallery
   Future<void> _editSmbGallery([SmbGallery? existing, int? index]) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final hostCtrl = TextEditingController(text: existing?.host ?? '');
@@ -115,7 +116,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 controller: nameCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Name',
-                  hintText: 'např. NAS domů',
+                  hintText: 'e.g. Home NAS',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -124,7 +125,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 controller: hostCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Server (IP or hostname)',
-                  hintText: 'např. 192.168.1.10',
+                  hintText: 'e.g. 192.168.1.10',
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.url,
@@ -134,7 +135,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 controller: shareCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Share name',
-                  hintText: 'např. photos',
+                  hintText: 'e.g. photos',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -143,7 +144,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 controller: pathCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Folder path (optional)',
-                  hintText: 'např. /gallery',
+                  hintText: 'e.g. /gallery',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -178,7 +179,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 controller: domainCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Domain (optional)',
-                  hintText: 'např. WORKGROUP',
+                  hintText: 'e.g. WORKGROUP',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -263,7 +264,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  /// Otestuje připojení k SMB galerii a zobrazí výsledek
+  /// Tests connection to the SMB gallery and shows the result
   Future<void> _testSmbGallery(SmbGallery gallery) async {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -288,11 +289,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  /// Otevře PayPal odkaz "Buy me a coffee"
+  /// Litecoin address for donations.
+  /// TODO: replace with your own LTC address
+  static const String ltcAddress = 'LTC_ADDRESS_PLACEHOLDER';
+
+  /// Opens the "Buy me a coffee" PayPal link
   Future<void> _openBuyMeACoffee() async {
     final uri = Uri.parse('https://paypal.me/pastelina7');
     try {
-      // Nejprve zkusit externí prohlížeč/aplikaci
+      // First try external browser/app
       final launched = await launchUrl(
         uri,
         mode: LaunchMode.externalApplication,
@@ -310,9 +315,22 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  /// Copies the LTC address to clipboard
+  Future<void> _copyLtcAddress() async {
+    await Clipboard.setData(const ClipboardData(text: ltcAddress));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Litecoin address copied to clipboard'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   Future<void> _toggleAuth(bool enabled) async {
     if (enabled) {
-      // Zapnutí autentizace — ověřit, že funguje
+      // Enabling authentication — verify it works
       final authenticated = await AuthService.authenticate();
       if (authenticated) {
         await SettingsService.setAuthEnabled(true);
@@ -330,7 +348,7 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       }
     } else {
-      // Vypnutí autentizace
+      // Disabling authentication
       await SettingsService.setAuthEnabled(false);
       setState(() => _authEnabled = false);
       if (mounted) {
@@ -353,7 +371,7 @@ class _SettingsPageState extends State<SettingsPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Výchozí akce při importu
+                // Default import action
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -397,7 +415,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Archivní složka
+                // Archive folder
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -432,7 +450,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Úložiště
+                // Storage
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -473,7 +491,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // SMB síťové galerie
+                // SMB network galleries
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -548,7 +566,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Zabezpečení
+                // Security
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -580,7 +598,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Podpora vývojáře
+                // Support the developer
                 Card(
                   color: Colors.amber[50],
                   child: Padding(
@@ -608,13 +626,21 @@ class _SettingsPageState extends State<SettingsPage> {
                           trailing: const Icon(Icons.open_in_new),
                           onTap: _openBuyMeACoffee,
                         ),
+                        ListTile(
+                          leading: const Icon(Icons.currency_bitcoin,
+                              color: Colors.blueGrey),
+                          title: const Text('Donate Litecoin (LTC)'),
+                          subtitle: const Text('Tap to copy address'),
+                          trailing: const Icon(Icons.copy),
+                          onTap: _copyLtcAddress,
+                        ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Informace o aplikaci
+                // App information
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),

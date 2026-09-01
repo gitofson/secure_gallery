@@ -7,19 +7,19 @@ import '../models/album.dart';
 import 'encryption_service.dart';
 import 'settings_service.dart';
 
-/// Služba pro práci s úložištěm alb (s podporou šifrování a anonymních názvů)
+/// Service for album storage (with encryption and anonymous names support)
 class StorageService {
   static const String _albumsFolder = 'albums';
   static const String _indexFileName = 'index.dat';
 
-  /// Získá cestu k adresáři s alby
+  /// Gets the path to the albums directory
   Future<Directory> _getAlbumsDirectory() async {
     final customPath = await SettingsService.getStoragePath();
     if (customPath != null && customPath.isNotEmpty) {
       return Directory('$customPath/$_albumsFolder');
     }
 
-    // Výchozí: public external storage (přežije odinstalaci)
+    // Default: public external storage (survives uninstall)
     // /storage/emulated/0/SecureGallery/
     final publicDir = Directory('/storage/emulated/0/SecureGallery');
     if (await publicDir.exists() ||
@@ -30,28 +30,28 @@ class StorageService {
       return Directory('${publicDir.path}/$_albumsFolder');
     }
 
-    // Fallback: externí úložiště aplikace
+    // Fallback: app external storage
     final externalDir = await getExternalStorageDirectory();
     if (externalDir != null) {
       return Directory('${externalDir.path}/$_albumsFolder');
     }
 
-    // Fallback: interní úložiště
+    // Fallback: internal storage
     final appDir = await getApplicationDocumentsDirectory();
     return Directory('${appDir.path}/$_albumsFolder');
   }
 
-  /// Získá aktuální cestu k úložišti (pro zobrazení v nastavení)
+  /// Gets the current storage path (for display in settings)
   Future<String> getCurrentStoragePath() async {
     final albumsDir = await _getAlbumsDirectory();
     return albumsDir.path;
   }
 
   // ---------------------------------------------------------------------------
-  // Index (mapování anonymních názvů na původní názvy)
+  // Index (mapping of anonymous names to original names)
   // ---------------------------------------------------------------------------
 
-  /// Načte index z disku (dešifrovaný)
+  /// Loads the index from disk (decrypted)
   Future<Map<String, dynamic>> _loadIndex() async {
     try {
       final albumsDir = await _getAlbumsDirectory();
@@ -67,12 +67,12 @@ class StorageService {
       index['files'] ??= <String, String>{};
       return index;
     } catch (e) {
-      print('⚠️ Chyba při načítání indexu: $e');
+      print('⚠️ Error loading index: $e');
       return {'albums': <String, String>{}, 'files': <String, String>{}};
     }
   }
 
-  /// Uloží index na disk (zašifrovaný)
+  /// Saves the index to disk (encrypted)
   Future<void> _saveIndex(Map<String, dynamic> index) async {
     try {
       final albumsDir = await _getAlbumsDirectory();
@@ -85,15 +85,15 @@ class StorageService {
           EncryptionService.encryptImage(utf8.encode(jsonString));
       await indexFile.writeAsBytes(encryptedBytes, flush: true);
     } catch (e) {
-      print('⚠️ Chyba při ukládání indexu: $e');
+      print('⚠️ Error saving index: $e');
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Alba
+  // Albums
   // ---------------------------------------------------------------------------
 
-  /// Načte všechna alba z disku
+  /// Loads all albums from disk
   Future<List<Album>> loadAlbums() async {
     final albumsDir = await _getAlbumsDirectory();
     if (!await albumsDir.exists()) {
@@ -120,7 +120,7 @@ class StorageService {
     return albums;
   }
 
-  /// Zjistí, zda je album zašifrované (všechny soubory mají .enc)
+  /// Checks whether the album is encrypted (all files have .enc)
   Future<bool> _isAlbumEncrypted(Directory dir) async {
     await for (final file in dir.list()) {
       if (file is File && isImageFile(file.path)) {
@@ -132,7 +132,7 @@ class StorageService {
     return true;
   }
 
-  /// Načte obrázky z adresáře
+  /// Loads images from a directory
   Future<List<File>> _loadImagesFromDirectory(Directory dir) async {
     final images = <File>[];
     await for (final file in dir.list()) {
@@ -143,8 +143,8 @@ class StorageService {
     return images;
   }
 
-  /// Najde skutečný adresář alba — anonymní (hash) nebo prostý název
-  /// (ručně zkopírovaná alba mají na disku původní název)
+  /// Finds the actual album directory — anonymous (hash) or plain name
+  /// (manually copied albums keep their original name on disk)
   Future<Directory?> _resolveAlbumDir(String albumName) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonDir =
@@ -155,7 +155,7 @@ class StorageService {
     return null;
   }
 
-  /// Vytvoří nové album
+  /// Creates a new album
   Future<void> createAlbum(String name) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonName = EncryptionService.anonymizeName(name);
@@ -167,7 +167,7 @@ class StorageService {
     await _saveIndex(index);
   }
 
-  /// Smaže album a všechny jeho obrázky
+  /// Deletes an album and all its images
   Future<void> deleteAlbum(String name) async {
     final anonName = EncryptionService.anonymizeName(name);
     final albumDir = await _resolveAlbumDir(name);
@@ -181,10 +181,10 @@ class StorageService {
   }
 
   // ---------------------------------------------------------------------------
-  // Obrázky
+  // Images
   // ---------------------------------------------------------------------------
 
-  /// Uloží obrázek do alba (zašifrovaný, anonymní název)
+  /// Saves an image to an album (encrypted, anonymous name)
   Future<File> saveImageToAlbum(String albumName, File sourceFile) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonAlbumName = EncryptionService.anonymizeName(albumName);
@@ -198,15 +198,15 @@ class StorageService {
     final anonFileName = EncryptionService.anonymizeName(
         '${DateTime.now().millisecondsSinceEpoch}_$originalFileName');
 
-    // Načtení a zašifrování obrázku
+    // Load and encrypt the image
     final imageBytes = await sourceFile.readAsBytes();
     final encryptedBytes = EncryptionService.encryptImage(imageBytes);
 
-    // Uložení zašifrovaného souboru
+    // Save the encrypted file
     final encryptedFile = File('${albumDir.path}/$anonFileName.enc');
     await encryptedFile.writeAsBytes(encryptedBytes);
 
-    // Uložení mapování do indexu
+    // Save the mapping to the index
     final index = await _loadIndex();
     (index['files'] as Map<String, dynamic>)[anonFileName] = originalFileName;
     await _saveIndex(index);
@@ -214,7 +214,7 @@ class StorageService {
     return encryptedFile;
   }
 
-  /// Načte a dešifruje obrázek (nebo vrátí nešifrovaná data)
+  /// Loads and decrypts an image (or returns unencrypted data)
   Future<Uint8List> loadDecryptedImage(File encryptedFile) async {
     final bytes = await encryptedFile.readAsBytes();
     if (encryptedFile.path.toLowerCase().endsWith('.enc')) {
@@ -223,13 +223,13 @@ class StorageService {
     return bytes;
   }
 
-  /// Smaže obrázek
+  /// Deletes an image
   Future<void> deleteImage(File image) async {
     if (await image.exists()) {
       await image.delete();
     }
 
-    // Odstranění z indexu
+    // Remove from the index
     final anonFileName =
         image.path.split('/').last.replaceAll('.enc', '');
     final index = await _loadIndex();
@@ -237,13 +237,13 @@ class StorageService {
     await _saveIndex(index);
   }
 
-  /// Přesune obrázky do archivního alba
+  /// Moves images to the archive album
   Future<void> moveToArchive(List<File> images, String sourceAlbum) async {
     final archiveFolder = await SettingsService.getArchiveFolder();
     await moveImagesToAlbum(images, archiveFolder);
   }
 
-  /// Přejmenuje album (adresář i záznam v indexu)
+  /// Renames an album (directory and index record)
   Future<void> renameAlbum(String oldName, String newName) async {
     if (oldName == newName || newName.isEmpty) return;
 
@@ -256,13 +256,13 @@ class StorageService {
 
     final newDir = Directory('${albumsDir.path}/$newAnon');
     if (await newDir.exists()) {
-      throw Exception('Album s názvem "$newName" již existuje');
+      throw Exception('Album named "$newName" already exists');
     }
 
-    // Přejmenování adresáře (vždy na anonymní název nového alba)
+    // Rename the directory (always to the anonymous name of the new album)
     await oldDir.rename(newDir.path);
 
-    // Aktualizace indexu
+    // Update the index
     final index = await _loadIndex();
     final albumsMap = index['albums'] as Map<String, dynamic>;
     albumsMap.remove(oldAnon);
@@ -270,11 +270,11 @@ class StorageService {
     await _saveIndex(index);
   }
 
-  /// Přesune obrázky do jiného alba.
-  /// Nikdy nedojde ke smíchání šifrovaných a nešifrovaných fotek v jednom albu:
-  /// - Cíl šifrovaný + zdroj nešifrovaný → fotka se zašifruje (anonymní název)
-  /// - Cíl nešifrovaný + zdroj šifrovaný → fotka se dešifruje (původní název)
-  /// - Stejný stav → přesune se tak, jak je
+  /// Moves images to another album.
+  /// Encrypted and unencrypted photos are never mixed in one album:
+  /// - Target encrypted + source unencrypted → photo is encrypted (anonymous name)
+  /// - Target unencrypted + source encrypted → photo is decrypted (original name)
+  /// - Same state → moved as is
   Future<int> moveImagesToAlbum(List<File> images, String targetAlbumName) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonTarget = EncryptionService.anonymizeName(targetAlbumName);
@@ -290,7 +290,7 @@ class StorageService {
       albumsMap[anonTarget] = targetAlbumName;
     }
 
-    // Zjistit, zda je cílové album šifrované
+    // Check whether the target album is encrypted
     final targetEncrypted = await _isAlbumEncrypted(targetDir);
 
     int movedCount = 0;
@@ -301,7 +301,7 @@ class StorageService {
         final anonFileName = fileName.replaceAll('.enc', '');
 
         if (isEncrypted && !targetEncrypted) {
-          // Cíl nešifrovaný → dešifrovat a uložit pod původním názvem
+          // Target unencrypted → decrypt and save under the original name
           final decrypted = EncryptionService.decryptImage(
               await image.readAsBytes());
           final originalName = filesMap[anonFileName] ?? anonFileName;
@@ -310,7 +310,7 @@ class StorageService {
           await image.delete();
           filesMap.remove(anonFileName);
         } else if (!isEncrypted && targetEncrypted) {
-          // Cíl šifrovaný → zašifrovat a uložit pod anonymním názvem
+          // Target encrypted → encrypt and save under an anonymous name
           final imageBytes = await image.readAsBytes();
           final encryptedBytes = EncryptionService.encryptImage(imageBytes);
           final newAnonName = EncryptionService.anonymizeName(
@@ -320,13 +320,13 @@ class StorageService {
           await image.delete();
           filesMap[newAnonName] = fileName;
         } else {
-          // Stejný stav → přesunout tak, jak je
+          // Same state → move as is
           final newPath = '${targetDir.path}/$fileName';
           await image.rename(newPath);
         }
         movedCount++;
       } catch (e) {
-        print('❌ Chyba při přesunu ${image.path}: $e');
+        print('❌ Error moving ${image.path}: $e');
       }
     }
 
@@ -338,7 +338,7 @@ class StorageService {
   // Export
   // ---------------------------------------------------------------------------
 
-  /// Exportuje obrázky do systémové galerie (s původními názvy)
+  /// Exports images to the system gallery (with original names)
   Future<int> exportImagesToGallery(List<File> images) async {
     int successCount = 0;
     final index = await _loadIndex();
@@ -361,14 +361,14 @@ class StorageService {
           successCount++;
         }
       } catch (e) {
-        print('❌ Chyba při exportu ${image.path}: $e');
+        print('❌ Error exporting ${image.path}: $e');
       }
     }
 
     return successCount;
   }
 
-  /// Exportuje všechna alba do systémové galerie
+  /// Exports all albums to the system gallery
   Future<int> exportAllAlbumsToGallery() async {
     final albums = await loadAlbums();
     int totalExported = 0;
@@ -381,7 +381,7 @@ class StorageService {
     return totalExported;
   }
 
-  /// Zašifruje všechny nešifrované obrázky v albu
+  /// Encrypts all unencrypted images in the album
   Future<int> encryptAlbum(String albumName) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonName = EncryptionService.anonymizeName(albumName);
@@ -395,49 +395,49 @@ class StorageService {
     final index = await _loadIndex();
     final filesMap = index['files'] as Map<String, dynamic>;
 
-    // Nejdřív načíst seznam souborů (neměnit adresář během iterace)
+    // First load the file list (do not modify the directory during iteration)
     final entities = await albumDir.list().toList();
 
     for (final entity in entities) {
       if (entity is File && isImageFile(entity.path)) {
         if (!entity.path.toLowerCase().endsWith('.enc')) {
           try {
-            // Načtení nešifrovaného obrázku
+            // Load the unencrypted image
             final imageBytes = await entity.readAsBytes();
 
-            // Zašifrování
+            // Encrypt
             final encryptedBytes = EncryptionService.encryptImage(imageBytes);
 
-            // Vytvoření nového anonymního názvu
+            // Create a new anonymous name
             final originalFileName = entity.path.split('/').last;
             final anonFileName = EncryptionService.anonymizeName(
                 '${DateTime.now().millisecondsSinceEpoch}_$originalFileName');
 
-            // Uložení zašifrovaného souboru
+            // Save the encrypted file
             final encryptedFile = File('${albumDir.path}/$anonFileName.enc');
             await encryptedFile.writeAsBytes(encryptedBytes);
 
-            // Smazání původního souboru
+            // Delete the original file
             await entity.delete();
 
-            // Přidání do indexu
+            // Add to the index
             filesMap[anonFileName] = originalFileName;
 
             encryptedCount++;
           } catch (e) {
-            print('❌ Chyba při šifrování ${entity.path}: $e');
+            print('❌ Error encrypting ${entity.path}: $e');
           }
         }
       }
     }
 
-    // Ručně zkopírované album (prostý název) přejmenovat na anonymní
+    // Manually copied album (plain name) — rename to anonymous
     if (albumDir.path.split('/').last != anonName) {
       try {
         await albumDir.rename('${albumsDir.path}/$anonName');
         (index['albums'] as Map<String, dynamic>)[anonName] = albumName;
       } catch (e) {
-        print('⚠️ Chyba při přejmenování adresáře alba: $e');
+        print('⚠️ Error renaming album directory: $e');
       }
     }
 
@@ -445,7 +445,7 @@ class StorageService {
     return encryptedCount;
   }
 
-  /// Dešifruje všechny zašifrované obrázky v albu (obnoví původní názvy)
+  /// Decrypts all encrypted images in the album (restores original names)
   Future<int> decryptAlbum(String albumName) async {
     final albumsDir = await _getAlbumsDirectory();
     final anonName = EncryptionService.anonymizeName(albumName);
@@ -459,41 +459,41 @@ class StorageService {
     final index = await _loadIndex();
     final filesMap = index['files'] as Map<String, dynamic>;
 
-    // Nejdřív načíst seznam souborů (neměnit adresář během iterace)
+    // First load the file list (do not modify the directory during iteration)
     final entities = await albumDir.list().toList();
 
     for (final entity in entities) {
       if (entity is File && entity.path.toLowerCase().endsWith('.enc')) {
         try {
-          // Načtení zašifrovaného obrázku
+          // Load the encrypted image
           final encryptedBytes = await entity.readAsBytes();
 
-          // Dešifrování
+          // Decrypt
           final decryptedBytes = EncryptionService.decryptImage(encryptedBytes);
 
-          // Získání původního názvu z indexu
+          // Get the original name from the index
           final anonFileName =
               entity.path.split('/').last.replaceAll('.enc', '');
           final originalName = filesMap[anonFileName] ?? anonFileName;
 
-          // Uložení dešifrovaného souboru s původním názvem
+          // Save the decrypted file with the original name
           final decryptedFile = File('${albumDir.path}/$originalName');
           await decryptedFile.writeAsBytes(decryptedBytes);
 
-          // Smazání zašifrovaného souboru
+          // Delete the encrypted file
           await entity.delete();
 
-          // Odstranění z indexu
+          // Remove from the index
           filesMap.remove(anonFileName);
 
           decryptedCount++;
         } catch (e) {
-          print('❌ Chyba při dešifrování ${entity.path}: $e');
+          print('❌ Error decrypting ${entity.path}: $e');
         }
       }
     }
 
-    // Přejmenovat anonymní adresář zpět na původní název alba
+    // Rename the anonymous directory back to the original album name
     if (albumDir.path.split('/').last == anonName && anonName != albumName) {
       final plainDir = Directory('${albumsDir.path}/$albumName');
       if (!await plainDir.exists()) {
@@ -501,7 +501,7 @@ class StorageService {
           await albumDir.rename(plainDir.path);
           (index['albums'] as Map<String, dynamic>).remove(anonName);
         } catch (e) {
-          print('⚠️ Chyba při přejmenování adresáře alba: $e');
+          print('⚠️ Error renaming album directory: $e');
         }
       }
     }
@@ -511,10 +511,10 @@ class StorageService {
   }
 
   // ---------------------------------------------------------------------------
-  // Pomocné metody
+  // Helper methods
   // ---------------------------------------------------------------------------
 
-  /// Kontrola, zda je soubor obrázek (včetně .enc)
+  /// Checks whether a file is an image (including .enc)
   bool isImageFile(String path) {
     final ext = path.toLowerCase().split('.').last;
     return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'enc'].contains(ext);

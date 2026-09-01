@@ -1,13 +1,13 @@
 import 'package:local_auth/local_auth.dart';
 
-/// Služba pro ověření uživatele (otisk prstu / Face ID / gesto)
+/// Service for user authentication (fingerprint / Face ID / device credentials)
 class AuthService {
   static final LocalAuthentication _auth = LocalAuthentication();
 
-  /// Ověří uživatele pomocí biometrie nebo gesta
+  /// Authenticates the user using biometrics or device credentials
   static Future<bool> authenticate() async {
     try {
-      print('🔐 AuthService.authenticate() zavoláno');
+      print('🔐 AuthService.authenticate() called');
       
       final canCheck = await _auth.canCheckBiometrics;
       final isDeviceSupported = await _auth.isDeviceSupported();
@@ -16,29 +16,29 @@ class AuthService {
       print('🔐 isDeviceSupported: $isDeviceSupported');
 
       if (!canCheck && !isDeviceSupported) {
-        // Zařízení nepodporuje biometrii — povolit přístup
-        print('🔐 Zařízení nepodporuje biometrii, povoluji přístup');
+        // Device does not support biometrics — allow access
+        print('🔐 Device does not support biometrics, allowing access');
         return true;
       }
 
-      print('🔐 Volám _auth.authenticate()...');
+      print('🔐 Calling _auth.authenticate()...');
       final result = await _auth.authenticate(
-        localizedReason: 'Pro přístup k galerii se ověřte',
+        localizedReason: 'Authenticate to access the gallery',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,
         ),
       );
-      print('🔐 authenticate() vrátilo: $result');
+      print('🔐 authenticate() returned: $result');
       return result;
     } catch (e, stackTrace) {
-      print('❌ Chyba při ověřování: $e');
+      print('❌ Authentication error: $e');
       print('❌ Stack trace: $stackTrace');
       return false;
     }
   }
 
-  /// Zjistí, zda zařízení podporuje biometrii
+  /// Checks whether the device supports biometrics
   static Future<bool> isBiometricAvailable() async {
     try {
       final canCheck = await _auth.canCheckBiometrics;
