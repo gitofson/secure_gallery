@@ -291,7 +291,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Litecoin address for donations.
   /// TODO: replace with your own LTC address
-  static const String ltcAddress = 'LTC_ADDRESS_PLACEHOLDER';
+  static const String ltcAddress = 'ltc1qvm2vgqqgp9nwxwvpzzzz4ufhuwmacgg2yawrqj';
 
   /// Opens the "Buy me a coffee" PayPal link
   Future<void> _openBuyMeACoffee() async {

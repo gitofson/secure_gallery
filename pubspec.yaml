@@ -22,6 +22,7 @@ dependencies:
   crypto: ^3.0.3
   url_launcher: ^6.2.2
   smb_connect: ^0.0.9
+  photo_manager: ^3.0.0
 
 dev_dependencies:
   flutter_test:

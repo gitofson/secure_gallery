@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'pages/album_list_page.dart';
@@ -164,26 +165,82 @@ class _AuthWrapperState extends State<AuthWrapper>
 
     if (!_isAuthenticated) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.lock, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              const Text(
-                'Authentication Required',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Blurred background (shows app content behind blur)
+            ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                color: Colors.teal.shade900,
               ),
-              const SizedBox(height: 8),
-              const Text('Please authenticate to access your gallery'),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _checkAuth,
-                icon: const Icon(Icons.fingerprint),
-                label: const Text('Authenticate'),
+            ),
+            // Lock screen content
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.teal.shade900.withValues(alpha: 0.9),
+                    Colors.teal.shade700.withValues(alpha: 0.9),
+                  ],
+                ),
               ),
-            ],
-          ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // App logo/icon
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lock,
+                        size: 64,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    const Text(
+                      'Secure Gallery',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Authentication Required',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+                    FilledButton.icon(
+                      onPressed: _checkAuth,
+                      icon: const Icon(Icons.fingerprint),
+                      label: const Text('Authenticate'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.teal.shade900,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
