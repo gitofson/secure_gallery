@@ -119,22 +119,9 @@ class SmbService {
     final key = _key(gallery);
     final existing = _connections[key];
     if (existing != null) {
-      // Check if connection is still alive by trying a simple operation
-      try {
-        // Try to access the folder to verify connection is valid
-        final folder = await existing.file(_folderPath(gallery));
-        await existing.listFiles(folder).timeout(
-          const Duration(seconds: 3),
-          onTimeout: () => throw TimeoutException('Connection check timeout'),
-        );
-        return existing;
-      } catch (_) {
-        // Connection is dead, remove it and create a new one
-        _connections.remove(key);
-        try {
-          await existing.close();
-        } catch (_) {}
-      }
+      // Don't test connection here — it can fail even when connection is alive
+      // Just return it and let the operation fail if needed
+      return existing;
     }
 
     final connect = await SmbConnect.connectAuth(
