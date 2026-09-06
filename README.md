@@ -1,17 +1,24 @@
-# flutter_app
+# secure_gallery
 
-A new Flutter project.
+A Flutter-based encrypted photo gallery app with SMB network share support.
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+- **🔒 AES-256 Encryption** — All photos encrypted at rest with securely stored keys
+- **👆 Biometric Auth** — Fingerprint/Face ID lock with auto-lock on background
+- **📁 Albums** — Organize photos into encrypted albums with anonymous names
+- **🌐 SMB Network Galleries** — Browse and import from network shares (read-only)
+- **📤 Export** — Decrypt and export to system gallery with original filenames
+- **🗂️ Move/Copy** — Flexible import with optional source deletion
+- **🎨 Modern UI** — Material Design 3 with dark theme support
 
-A few resources to get you started if this is your first Flutter project:
+## Security
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Photos stored in `/storage/emulated/0/SecureGallery/` (survives uninstall)
+- Anonymous file/folder names (HMAC-SHA256 hashes)
+- No cloud — everything stays on your device
+- Optional biometric lock with blur screen protection
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Tech Stack
+
+Flutter • AES-256 • SMB/CIFS • photo_manager • local_auth • flutter_secure_storage
