@@ -42,6 +42,7 @@ class _AuthWrapperState extends State<AuthWrapper>
   bool _hasStoragePermission = false;
   bool _authEnabled = false;
   bool _authInProgress = false;
+  DateTime? _lastPausedTime; // Track when app went to background
 
   @override
   void initState() {
@@ -69,15 +70,27 @@ class _AuthWrapperState extends State<AuthWrapper>
         state == AppLifecycleState.inactive) {
       if (_authEnabled && _isAuthenticated) {
         setState(() => _isAuthenticated = false);
+        _lastPausedTime = DateTime.now();
       }
     }
 
     // Request authentication again after returning from background
+    // BUT: skip if we were in image picker (it triggers paused/resumed quickly)
     if (state == AppLifecycleState.resumed &&
         _authEnabled &&
         !_isAuthenticated &&
         !_isLoading) {
-      _checkAuth();
+      // If we were paused for less than 2 seconds, it was probably image picker
+      final pausedDuration = _lastPausedTime != null
+          ? DateTime.now().difference(_lastPausedTime!)
+          : Duration.zero;
+      
+      if (pausedDuration.inSeconds > 2) {
+        _checkAuth();
+      } else {
+        // Short pause — probably image picker, restore auth immediately
+        setState(() => _isAuthenticated = true);
+      }
     }
   }
 

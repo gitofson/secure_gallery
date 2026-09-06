@@ -343,12 +343,13 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         }
       }
 
-      setState(() {
-        _images.addAll(newImages);
-      });
-      widget.onAlbumChanged();
-
+      // Update UI immediately
       if (mounted) {
+        setState(() {
+          _images.addAll(newImages);
+        });
+        widget.onAlbumChanged();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Added ${files.length} images')),
         );
@@ -370,13 +371,8 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         // On Android, image_picker returns a cached file path
         // We need to find the original asset in MediaStore and delete it
         
-        // Read the picked file content for comparison
-        final pickedFile = File(file.path);
-        if (!await pickedFile.exists()) {
-          print('⚠️ Picked file does not exist: ${file.path}');
-          return;
-        }
-        final pickedBytes = await pickedFile.readAsBytes();
+        // Get the file name from the picked file
+        final pickedFileName = file.path.split('/').last;
         
         // Query all images from MediaStore
         final List<AssetPathEntity> paths = await PhotoManager.getAssetPathList(
@@ -386,7 +382,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         
         AssetEntity? foundAsset;
         
-        // Search through all paths for our file by comparing content
+        // Search through all paths for our file
         for (final path in paths) {
           final List<AssetEntity> assets = await path.getAssetListRange(
             start: 0,
@@ -394,17 +390,20 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
           );
           
           for (final asset in assets) {
+            // Try to match by filename
+            final title = await asset.titleAsync;
+            if (title == pickedFileName) {
+              foundAsset = asset;
+              break;
+            }
+            
+            // Also try to match by comparing file content
             final assetFile = await asset.file;
-            if (assetFile != null && await assetFile.exists()) {
-              // Compare file sizes first (quick check)
-              final assetSize = await assetFile.length();
-              if (assetSize == pickedBytes.length) {
-                // Compare content
-                final assetBytes = await assetFile.readAsBytes();
-                if (_listEquals(assetBytes, pickedBytes)) {
-                  foundAsset = asset;
-                  break;
-                }
+            if (assetFile != null) {
+              final assetName = assetFile.path.split('/').last;
+              if (assetName == pickedFileName) {
+                foundAsset = asset;
+                break;
               }
             }
           }
@@ -423,8 +422,9 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         } else {
           print('⚠️ Could not find original asset in gallery');
           // Fallback: try to delete the cached file
-          if (await pickedFile.exists()) {
-            await pickedFile.delete();
+          final cachedFile = File(file.path);
+          if (await cachedFile.exists()) {
+            await cachedFile.delete();
           }
         }
       } else if (Platform.isIOS) {
